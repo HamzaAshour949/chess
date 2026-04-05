@@ -10,8 +10,9 @@ dist/
 build/
 .env
 .env.*
+!.env.example
 
-# SQLite database
+# Database files
 *.db
 *.sqlite3
 

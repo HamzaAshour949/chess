@@ -73,7 +73,10 @@ class SiteString(db.Model):
     value = db.Column(db.Text, nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    __table_args__ = (db.UniqueConstraint("key", "lang", name="uq_key_lang"),)
+    __table_args__ = (
+        db.UniqueConstraint("key", "lang", name="uq_key_lang"),
+        {"mysql_charset": "utf8mb4", "mysql_collate": "utf8mb4_unicode_ci"},
+    )
 
     def to_dict(self):
         return {

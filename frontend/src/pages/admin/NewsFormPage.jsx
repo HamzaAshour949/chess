@@ -17,6 +17,7 @@ export default function NewsFormPage() {
     region: "both",
     image_url: "",
     published: false,
+    is_featured: false,
     player_id: "",
   });
   const [players, setPlayers] = useState([]);
@@ -36,6 +37,7 @@ export default function NewsFormPage() {
           region: r.data.region || "both",
           image_url: r.data.image_url || "",
           published: r.data.published || false,
+          is_featured: r.data.is_featured || false,
           player_id: r.data.player_id || "",
         });
       });
@@ -186,19 +188,35 @@ export default function NewsFormPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            name="published"
-            id="published"
-            checked={form.published}
-            onChange={handleChange}
-            className="w-4 h-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500"
-          />
-          <label htmlFor="published" className="text-sm font-medium text-gray-700">
-            {t("published")}
-          </label>
+        <div className="flex items-center gap-6">
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              name="published"
+              id="published"
+              checked={form.published}
+              onChange={handleChange}
+              className="w-4 h-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500"
+            />
+            <label htmlFor="published" className="text-sm font-medium text-gray-700">
+              {t("published")}
+            </label>
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              name="is_featured"
+              id="is_featured"
+              checked={form.is_featured}
+              onChange={handleChange}
+              className="w-4 h-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500"
+            />
+            <label htmlFor="is_featured" className="text-sm font-medium text-gray-700">
+              ⭐ {t("mark_featured")}
+            </label>
+          </div>
         </div>
+        <p className="text-xs text-gray-400">{t("featured_hint")}</p>
 
         <div className="flex gap-3 pt-2">
           <button

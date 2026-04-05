@@ -40,6 +40,8 @@ class Player(db.Model):
     title = db.Column(db.String(20), nullable=True)  # GM, IM, FM, etc.
     image_url = db.Column(db.String(500), nullable=True)
     date_of_birth = db.Column(db.Date, nullable=True)
+    is_player_of_month = db.Column(db.Boolean, default=False)
+    is_tournament_winner = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -59,6 +61,8 @@ class Player(db.Model):
             "title": self.title,
             "image_url": self.image_url,
             "date_of_birth": self.date_of_birth.isoformat() if self.date_of_birth else None,
+            "is_player_of_month": self.is_player_of_month,
+            "is_tournament_winner": self.is_tournament_winner,
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
@@ -98,6 +102,7 @@ class News(db.Model):
     region = db.Column(db.String(10), nullable=False, default="both")  # 'en', 'ar', 'both'
     image_url = db.Column(db.String(500), nullable=True)
     published = db.Column(db.Boolean, default=False)
+    is_featured = db.Column(db.Boolean, default=False)
     published_at = db.Column(db.DateTime, nullable=True)
     player_id = db.Column(db.Integer, db.ForeignKey("players.id"), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -115,6 +120,7 @@ class News(db.Model):
             "region": self.region,
             "image_url": self.image_url,
             "published": self.published,
+            "is_featured": self.is_featured,
             "published_at": self.published_at.isoformat() if self.published_at else None,
             "player_id": self.player_id,
             "player_name": (

@@ -19,6 +19,8 @@ export default function PlayerFormPage() {
     title: "",
     image_url: "",
     date_of_birth: "",
+    is_player_of_month: false,
+    is_tournament_winner: false,
   });
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -37,13 +39,16 @@ export default function PlayerFormPage() {
           title: r.data.title || "",
           image_url: r.data.image_url || "",
           date_of_birth: r.data.date_of_birth || "",
+          is_player_of_month: r.data.is_player_of_month || false,
+          is_tournament_winner: r.data.is_tournament_winner || false,
         });
       });
     }
   }, [id, isEdit]);
 
   const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    const value = e.target.type === "checkbox" ? e.target.checked : e.target.value;
+    setForm({ ...form, [e.target.name]: value });
   };
 
   const handleImageUpload = async (e) => {
@@ -205,6 +210,35 @@ export default function PlayerFormPage() {
               <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
             </label>
           </div>
+        </div>
+
+        <div className="border-t border-gray-200 pt-5">
+          <p className="text-sm font-medium text-gray-700 mb-3">{t("homepage_highlights")}</p>
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                name="is_player_of_month"
+                id="is_player_of_month"
+                checked={form.is_player_of_month}
+                onChange={handleChange}
+                className="w-4 h-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500"
+              />
+              <label htmlFor="is_player_of_month" className="text-sm text-gray-700">🏆 {t("player_of_month")}</label>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                name="is_tournament_winner"
+                id="is_tournament_winner"
+                checked={form.is_tournament_winner}
+                onChange={handleChange}
+                className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              <label htmlFor="is_tournament_winner" className="text-sm text-gray-700">👑 {t("tournament_winner")}</label>
+            </div>
+          </div>
+          <p className="text-xs text-gray-400 mt-2">{t("highlight_hint")}</p>
         </div>
 
         <div className="flex gap-3 pt-2">

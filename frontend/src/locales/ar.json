@@ -66,6 +66,18 @@
   "featured_players": "اللاعبون المميزون",
   "see_all_players": "عرض جميع اللاعبين",
   "see_all_news": "عرض جميع الأخبار",
+  "featured_news": "أخبار مميزة",
+  "featured": "مميز",
+  "hero_badge": "بيت الشطرنج",
+  "countries": "الدول",
+  "player_of_month": "لاعب الشهر",
+  "player_of_month_sub": "أفضل لاعب أداءً هذا الشهر",
+  "tournament_winner": "بطل العالم",
+  "tournament_winner_sub": "بطل العالم الحالي في الشطرنج",
   "site_strings": "نصوص الموقع",
-  "add_string": "إضافة نص"
+  "add_string": "إضافة نص",
+  "mark_featured": "مميز على الصفحة الرئيسية",
+  "featured_hint": "يمكن تمييز خبر واحد فقط في كل مرة. اختيار هذا سيزيل التمييز عن أي خبر آخر.",
+  "homepage_highlights": "أبرز الصفحة الرئيسية",
+  "highlight_hint": "يمكن للاعب واحد فقط أن يحمل كل تمييز. التبديل سيزيل التمييز السابق تلقائياً."
 }

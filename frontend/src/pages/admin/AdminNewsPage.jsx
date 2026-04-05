@@ -59,6 +59,7 @@ export default function AdminNewsPage() {
               {news.map((n) => (
                 <tr key={n.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 text-sm font-medium text-gray-900 max-w-xs truncate">
+                    {n.is_featured && <span className="mr-1">⭐</span>}
                     {n.title_en || n.title_ar || "—"}
                   </td>
                   <td className="px-6 py-4 text-sm">

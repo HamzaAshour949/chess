@@ -1,5 +1,7 @@
 # CLAUDE.md — Chess Platform Project Context
 
+> **Living Document Rule:** This file must be updated whenever there is a structural change to the project — new models, new API routes, new features, changed architecture, or any modification that would affect how another developer (or AI) understands the codebase. Treat this as the single source of truth for project context.
+
 ## Project Overview
 A bilingual (English / Arabic) chess players & news CMS built with **Flask** (backend API) and **React + Vite** (frontend SPA). The frontend is built to static files and served by Flask in production.
 
@@ -144,6 +146,7 @@ Or simply: `./start.sh` (requires venv to already be set up).
 - **Always** test both English and Arabic content when modifying i18n
 - **Always** run `python3 seed.py` after fresh database creation
 - **Always** build the frontend (`npm run build` in /frontend) before deploying
+- **Always** update `CLAUDE.md` when adding/removing models, API routes, features, or making architectural changes
 
 ### Database Rules
 - The database is **MySQL 8+** with `utf8mb4` charset
@@ -165,6 +168,20 @@ Or simply: `./start.sh` (requires venv to already be set up).
 | Model       | Key Fields                                      |
 |-------------|--------------------------------------------------|
 | Admin       | username, email, password_hash                   |
-| Player      | name_en, name_ar, bio_en, bio_ar, country, rating, title, image_url, date_of_birth |
-| News        | title_en, title_ar, content_en, content_ar, region, image_url, published, player_id |
+| Player      | name_en, name_ar, bio_en, bio_ar, country, rating, title, image_url, date_of_birth, **is_player_of_month**, **is_tournament_winner** |
+| News        | title_en, title_ar, content_en, content_ar, region, image_url, published, **is_featured**, player_id |
 | SiteString  | key, lang, value (unique on key+lang)            |
+
+---
+
+## Homepage Features
+
+The public homepage has several dynamic sections managed via the admin panel:
+
+| Feature | How It Works |
+|---------|-------------|
+| **Featured News** | One news article with `is_featured=True` appears as the large spotlight card. Only one at a time (toggling auto-unsets the previous). Falls back to the latest news if none is marked. |
+| **Player of the Month** | One player with `is_player_of_month=True` is shown in a gold card. Set via the player edit form. Only one at a time. |
+| **Tournament Winner** | One player with `is_tournament_winner=True` is shown in a blue card. Set via the player edit form. Only one at a time. |
+
+**API Endpoint:** `GET /api/players/homepage?lang=en` returns `{ player_of_month, tournament_winner }` for the homepage cards.

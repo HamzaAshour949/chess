@@ -73,9 +73,12 @@ def create_news():
         region=data.get("region", "both"),
         image_url=data.get("image_url"),
         published=data.get("published", False),
+        is_featured=data.get("is_featured", False),
         published_at=datetime.utcnow() if data.get("published") else None,
         player_id=data.get("player_id"),
     )
+    if news.is_featured:
+        News.query.filter(News.is_featured == True).update({"is_featured": False})
     db.session.add(news)
     db.session.commit()
     return jsonify(news.to_dict()), 201
@@ -90,6 +93,11 @@ def update_news(news_id):
     for field in ["title_en", "title_ar", "content_en", "content_ar", "region", "image_url", "player_id"]:
         if field in data:
             setattr(news, field, data[field])
+
+    if "is_featured" in data:
+        if data["is_featured"]:
+            News.query.filter(News.id != news_id, News.is_featured == True).update({"is_featured": False})
+        news.is_featured = data["is_featured"]
 
     if "published" in data:
         was_published = news.published

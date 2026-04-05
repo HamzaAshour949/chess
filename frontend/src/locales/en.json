@@ -66,6 +66,18 @@
   "featured_players": "Featured Players",
   "see_all_players": "See All Players",
   "see_all_news": "See All News",
+  "featured_news": "Featured News",
+  "featured": "Featured",
+  "hero_badge": "The Home of Chess",
+  "countries": "Countries",
+  "player_of_month": "Player of the Month",
+  "player_of_month_sub": "Top performing player this month",
+  "tournament_winner": "World Champion",
+  "tournament_winner_sub": "Reigning World Chess Champion",
   "site_strings": "Site Strings",
-  "add_string": "Add String"
+  "add_string": "Add String",
+  "mark_featured": "Featured on Homepage",
+  "featured_hint": "Only one news article can be featured at a time. Selecting this will remove the featured flag from any other article.",
+  "homepage_highlights": "Homepage Highlights",
+  "highlight_hint": "Only one player can hold each highlight at a time. Toggling will automatically unset the previous holder."
 }

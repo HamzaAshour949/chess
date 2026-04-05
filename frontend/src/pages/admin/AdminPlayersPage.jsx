@@ -68,7 +68,11 @@ export default function AdminPlayersPage() {
             <tbody className="divide-y divide-gray-100">
               {players.map((p) => (
                 <tr key={p.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 text-sm font-medium text-gray-900">{p.name_en}</td>
+                  <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                    {p.name_en}
+                    {p.is_player_of_month && <span className="ml-2 text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">🏆</span>}
+                    {p.is_tournament_winner && <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">👑</span>}
+                  </td>
                   <td className="px-6 py-4 text-sm text-gray-700">{p.name_ar}</td>
                   <td className="px-6 py-4 text-sm">
                     {p.title && (

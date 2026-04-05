@@ -3,6 +3,7 @@ import uuid
 from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import jwt_required
 from werkzeug.utils import secure_filename
+from app import limiter
 
 upload_bp = Blueprint("upload", __name__)
 
@@ -15,6 +16,7 @@ def allowed_file(filename):
 
 @upload_bp.route("/image", methods=["POST"])
 @jwt_required()
+@limiter.limit("30 per minute")
 def upload_image():
     if "file" not in request.files:
         return jsonify({"error": "No file provided"}), 400

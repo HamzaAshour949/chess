@@ -16,3 +16,12 @@ class Config:
     JWT_ACCESS_TOKEN_EXPIRES = 86400  # 24 hours
     UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")
     MAX_CONTENT_LENGTH = 5 * 1024 * 1024  # 5MB
+
+    # Rate limiting
+    RATELIMIT_DEFAULT = os.getenv("RATELIMIT_DEFAULT", "200 per minute")
+    RATELIMIT_STORAGE_URI = os.getenv("RATELIMIT_STORAGE_URI", "memory://")
+
+    # Security
+    SESSION_COOKIE_SECURE = os.getenv("FLASK_ENV") == "production"
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = "Lax"

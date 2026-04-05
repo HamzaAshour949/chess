@@ -1,12 +1,13 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 from app.models import Admin
-from app import db
+from app import db, limiter
 
 auth_bp = Blueprint("auth", __name__)
 
 
 @auth_bp.route("/login", methods=["POST"])
+@limiter.limit("10 per minute")
 def login():
     data = request.get_json()
     if not data or not data.get("username") or not data.get("password"):
@@ -31,6 +32,7 @@ def me():
 
 
 @auth_bp.route("/setup", methods=["POST"])
+@limiter.limit("5 per hour")
 def setup():
     """Create initial admin account if none exists."""
     if Admin.query.count() > 0:

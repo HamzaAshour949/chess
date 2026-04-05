@@ -4,10 +4,14 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_jwt_extended import JWTManager
 from flask_cors import CORS
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+from flask_talisman import Talisman
 
 db = SQLAlchemy()
 migrate = Migrate()
 jwt = JWTManager()
+limiter = Limiter(key_func=get_remote_address)
 
 FRONTEND_DIST = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "..", "frontend", "dist"
@@ -27,7 +31,17 @@ def create_app():
     db.init_app(app)
     migrate.init_app(app, db)
     jwt.init_app(app)
+    limiter.init_app(app)
     CORS(app, resources={r"/api/*": {"origins": "*"}})
+
+    # Security headers (CSP, HSTS, etc.)
+    # force_https=False for local dev; set True behind a reverse proxy in prod
+    Talisman(
+        app,
+        force_https=False,
+        content_security_policy=None,  # frontend is served from same origin
+        session_cookie_secure=app.config.get("SESSION_COOKIE_SECURE", False),
+    )
 
     from app.routes.auth import auth_bp
     from app.routes.players import players_bp

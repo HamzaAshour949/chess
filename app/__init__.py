@@ -19,11 +19,7 @@ FRONTEND_DIST = os.path.join(
 
 
 def create_app():
-    app = Flask(
-        __name__,
-        static_folder=os.path.abspath(FRONTEND_DIST),
-        static_url_path="",
-    )
+    app = Flask(__name__)
     app.config.from_object("config.Config")
 
     os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)

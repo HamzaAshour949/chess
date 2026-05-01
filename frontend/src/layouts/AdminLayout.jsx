@@ -17,6 +17,10 @@ export default function AdminLayout() {
     { to: "/admin", label: t("dashboard"), icon: "📊", exact: true },
     { to: "/admin/players", label: t("manage_players"), icon: "♟" },
     { to: "/admin/news", label: t("manage_news"), icon: "📰" },
+    { to: "/admin/users", label: t("manage_users"), icon: "👥" },
+    { to: "/admin/games", label: t("admin_matches"), icon: "♟" },
+    { to: "/admin/messages", label: t("admin_chat_moderation"), icon: "💬" },
+    { to: "/admin/link-requests", label: t("link_requests"), icon: "🔗" },
     { to: "/admin/strings", label: t("site_strings") || "Site Strings", icon: "🔤" },
   ];
 

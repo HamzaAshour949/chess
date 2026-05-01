@@ -1,302 +1,318 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { Swiper, SwiperSlide } from "swiper/react";
+import { Autoplay, EffectFade, Navigation, Pagination } from "swiper/modules";
+import { motion } from "framer-motion";
+
 import { useLanguage } from "../../context/LanguageContext";
+import { useUserAuth } from "../../context/UserAuthContext";
 import api from "../../api";
 import PlayerCard from "../../components/PlayerCard";
 import NewsCard from "../../components/NewsCard";
 
+function stripHtml(s) {
+  return (s || "").replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
+}
+
+function HeroCarousel({ items }) {
+  const { t } = useTranslation();
+  if (!items.length) {
+    return (
+      <div className="relative h-[480px] sm:h-[560px] lg:h-[640px] surface-2 overflow-hidden flex items-center justify-center">
+        <span className="shimmer absolute inset-0" />
+      </div>
+    );
+  }
+  return (
+    <Swiper
+      className="news-swiper rounded-3xl overflow-hidden"
+      modules={[Autoplay, EffectFade, Navigation, Pagination]}
+      effect="fade"
+      fadeEffect={{ crossFade: true }}
+      autoplay={{ delay: 5500, disableOnInteraction: false }}
+      loop={items.length > 1}
+      navigation
+      pagination={{ clickable: true }}
+      speed={700}
+    >
+      {items.map((n) => (
+        <SwiperSlide key={n.id}>
+          <Link
+            to={`/news/${n.id}`}
+            className="relative block h-[480px] sm:h-[560px] lg:h-[640px] group"
+          >
+            {n.image_url ? (
+              <img
+                src={n.image_url}
+                alt={n.title}
+                className="absolute inset-0 w-full h-full object-cover scale-105 group-hover:scale-110 transition-transform duration-[1.2s]"
+              />
+            ) : (
+              <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" />
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/60 to-black/20" />
+            <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-transparent to-transparent" />
+
+            <div className="relative h-full max-w-7xl mx-auto px-4 sm:px-8 lg:px-12 flex items-end pb-12 sm:pb-16">
+              <div className="max-w-3xl">
+                <span className="chip chip-gold mb-4 animate-fade-up">★ {t("featured")}</span>
+                <motion.h2
+                  key={n.id + "-t"}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6, delay: 0.05 }}
+                  className="text-3xl sm:text-5xl lg:text-6xl font-extrabold text-white leading-tight tracking-tight mb-4 [text-wrap:balance]"
+                >
+                  {n.title}
+                </motion.h2>
+                {n.content && (
+                  <motion.p
+                    key={n.id + "-c"}
+                    initial={{ opacity: 0, y: 16 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.6, delay: 0.15 }}
+                    className="text-slate-300 text-base sm:text-lg max-w-2xl line-clamp-2 mb-6"
+                  >
+                    {stripHtml(n.content).slice(0, 240)}
+                  </motion.p>
+                )}
+                <motion.div
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6, delay: 0.25 }}
+                  className="flex items-center gap-3 text-sm text-slate-400"
+                >
+                  {n.published_at && <span>{new Date(n.published_at).toLocaleDateString()}</span>}
+                  {n.player_name && (
+                    <>
+                      <span>•</span>
+                      <span className="text-slate-300">{n.player_name}</span>
+                    </>
+                  )}
+                </motion.div>
+              </div>
+            </div>
+          </Link>
+        </SwiperSlide>
+      ))}
+    </Swiper>
+  );
+}
+
 export default function HomePage() {
   const { t } = useTranslation();
   const { lang } = useLanguage();
+  const { user } = useUserAuth();
+
   const [players, setPlayers] = useState([]);
   const [news, setNews] = useState([]);
+  const [carouselItems, setCarouselItems] = useState([]);
   const [playerOfMonth, setPlayerOfMonth] = useState(null);
   const [tournamentWinner, setTournamentWinner] = useState(null);
-  const [featuredNews, setFeaturedNews] = useState(null);
+  const [topRated, setTopRated] = useState([]);
 
   useEffect(() => {
-    api.get(`/players?lang=${lang}&per_page=8`).then((r) => setPlayers(r.data.players));
-    api.get(`/news?lang=${lang}&per_page=7`).then((r) => {
-      const items = r.data.news;
-      const feat = items.find((n) => n.is_featured);
-      if (feat) {
-        setFeaturedNews(feat);
-        setNews(items.filter((n) => n.id !== feat.id));
-      } else {
-        setFeaturedNews(items[0] || null);
-        setNews(items.slice(1));
-      }
+    api.get(`/players?lang=${lang}&per_page=8`).then((r) => setPlayers(r.data.players || []));
+    api.get(`/news?lang=${lang}&per_page=12`).then((r) => {
+      const items = r.data.news || [];
+      // Carousel: featured first, then rest with images, capped at 6
+      const featured = items.filter((n) => n.is_featured);
+      const others = items.filter((n) => !n.is_featured && n.image_url);
+      setCarouselItems([...featured, ...others].slice(0, 6));
+      setNews(items);
     });
     api.get(`/players/homepage?lang=${lang}`).then((r) => {
       setPlayerOfMonth(r.data.player_of_month);
       setTournamentWinner(r.data.tournament_winner);
-    });
+    }).catch(() => {});
+    api.get(`/games/leaderboard`).then((r) => setTopRated((r.data || []).slice(0, 5))).catch(() => {});
   }, [lang]);
 
-  const featured = featuredNews;
-  const sideNews = news.slice(0, 3);
-  const moreNews = news.slice(3, 6);
+  const moreNews = useMemo(() => news.filter((n) => !carouselItems.find((c) => c.id === n.id)).slice(0, 6), [news, carouselItems]);
 
   return (
-    <div>
-      {/* Hero */}
-      <section className="relative bg-gray-900 overflow-hidden">
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute inset-0" style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.4'%3E%3Crect x='0' y='0' width='30' height='30'/%3E%3Crect x='30' y='30' width='30' height='30'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-            backgroundSize: '60px 60px',
-          }} />
+    <div className="space-y-16 lg:space-y-24">
+      {/* Hero with carousel */}
+      <section className="relative pt-6 sm:pt-8">
+        <div className="absolute inset-0 bg-grid opacity-30 pointer-events-none" />
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+            <div className="lg:col-span-8">
+              <HeroCarousel items={carouselItems} />
+            </div>
+            <aside className="lg:col-span-4 flex flex-col gap-4">
+              <div className="surface-elev p-6 relative overflow-hidden">
+                <div className="absolute -right-10 -top-10 w-40 h-40 rounded-full bg-amber-500/20 blur-3xl" />
+                <span className="chip chip-gold mb-4">♔ {t("hero_badge")}</span>
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-white leading-tight mb-2 [text-wrap:balance]">
+                  {t("welcome")}
+                </h1>
+                <p className="text-slate-300 text-sm leading-relaxed mb-5">{t("welcome_desc")}</p>
+                <div className="flex flex-wrap gap-2">
+                  <Link to={user ? "/play" : "/register"} className="btn btn-primary">
+                    {user ? t("play_now") : t("get_started")}
+                  </Link>
+                  <Link to="/players" className="btn btn-outline">{t("browse_players")}</Link>
+                </div>
+              </div>
+
+              <div className="surface p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-bold text-white tracking-wide uppercase">{t("leaderboard_title")}</h3>
+                  <Link to="/leaderboard" className="text-xs text-amber-400 hover:text-amber-300">{t("see_all_players")} →</Link>
+                </div>
+                {topRated.length === 0 ? (
+                  <div className="space-y-2">
+                    {[0,1,2,3].map(i => <div key={i} className="h-9 rounded-lg shimmer" />)}
+                  </div>
+                ) : (
+                  <ol className="space-y-1.5">
+                    {topRated.map((u, i) => (
+                      <li key={u.id} className="flex items-center gap-3 px-2 py-1.5 rounded-lg hover:bg-white/5 transition">
+                        <span className={`w-6 text-center text-xs font-bold ${i === 0 ? "text-amber-400" : "text-slate-500"}`}>{i + 1}</span>
+                        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center text-xs text-slate-300 font-bold">
+                          {(u.display_name || u.username || "?").charAt(0).toUpperCase()}
+                        </div>
+                        <span className="flex-1 text-sm text-slate-200 truncate">{u.display_name || u.username}</span>
+                        <span className="text-sm font-bold text-amber-400">{u.online_rating}</span>
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </div>
+            </aside>
+          </div>
         </div>
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 sm:py-32 text-center">
-          <div className="inline-flex items-center px-4 py-1.5 bg-amber-600/20 rounded-full text-amber-400 text-sm font-medium mb-6 border border-amber-600/30">
-            ♔ {t("hero_badge")}
-          </div>
-          <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold text-white mb-6 tracking-tight">
-            {t("welcome")}
-          </h1>
-          <p className="text-lg sm:text-xl text-gray-300 max-w-3xl mx-auto mb-10 leading-relaxed">
-            {t("welcome_desc")}
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link
-              to="/news"
-              className="px-8 py-4 bg-amber-600 hover:bg-amber-500 rounded-xl font-semibold text-white transition-all shadow-lg shadow-amber-600/25 hover:shadow-amber-500/40 text-lg"
-            >
-              {t("see_all_news")}
-            </Link>
-            <Link
-              to="/players"
-              className="px-8 py-4 bg-white/10 hover:bg-white/20 rounded-xl font-semibold text-white transition-all backdrop-blur border border-white/20 text-lg"
-            >
-              {t("see_all_players")}
-            </Link>
-          </div>
-          <div className="mt-16 grid grid-cols-3 gap-8 max-w-md mx-auto">
-            <div>
-              <div className="text-3xl sm:text-4xl font-bold text-amber-500">{players.length}+</div>
-              <div className="text-sm text-gray-400 mt-1">{t("players")}</div>
+      </section>
+
+      {/* Play CTA strip */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="surface-elev relative overflow-hidden p-8 sm:p-10 flex flex-col md:flex-row items-center gap-6 md:gap-10">
+          <div className="absolute inset-0 bg-grid opacity-20" />
+          <div className="absolute -left-20 -top-20 w-72 h-72 rounded-full bg-amber-500/15 blur-3xl" />
+          <div className="absolute -right-20 -bottom-20 w-72 h-72 rounded-full bg-blue-500/15 blur-3xl" />
+
+          <div className="relative flex-shrink-0">
+            <div className="w-28 h-28 sm:w-36 sm:h-36 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-700 flex items-center justify-center shadow-2xl shadow-amber-500/30 animate-float">
+              <span className="text-6xl sm:text-7xl text-slate-900">♞</span>
             </div>
-            <div>
-              <div className="text-3xl sm:text-4xl font-bold text-amber-500">{news.length}+</div>
-              <div className="text-sm text-gray-400 mt-1">{t("news")}</div>
-            </div>
-            <div>
-              <div className="text-3xl sm:text-4xl font-bold text-amber-500">20+</div>
-              <div className="text-sm text-gray-400 mt-1">{t("countries")}</div>
+          </div>
+          <div className="relative flex-1 text-center md:text-start">
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-white mb-2">{t("play_against_world")}</h2>
+            <p className="text-slate-300 mb-5">{t("play_cta_sub")}</p>
+            <div className="flex flex-wrap gap-3 justify-center md:justify-start">
+              <Link to={user ? "/play" : "/register"} className="btn btn-primary btn-lg">
+                {user ? t("play_now") : t("get_started")} →
+              </Link>
+              <Link to="/leaderboard" className="btn btn-outline btn-lg">{t("leaderboard")}</Link>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Featured News Spotlight */}
-      {featured && (
-        <section className="bg-gray-900">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-            <div className="flex items-center gap-3 mb-8">
-              <div className="h-8 w-1 bg-amber-500 rounded-full" />
-              <h2 className="text-2xl sm:text-3xl font-bold text-white">{t("featured_news")}</h2>
-            </div>
-            <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-              {/* Main featured story */}
-              <Link
-                to={`/news/${featured.id}`}
-                className="lg:col-span-3 group relative rounded-2xl overflow-hidden bg-gray-800 min-h-[400px] flex flex-col justify-end"
-              >
-                {featured.image_url && (
-                  <img
-                    src={featured.image_url}
-                    alt={featured.title}
-                    className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                  />
-                )}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
-                <div className="relative p-6 sm:p-8">
-                  <span className="inline-block px-3 py-1 bg-amber-600 text-white text-xs font-bold rounded-full mb-3 uppercase tracking-wider">
-                    {t("featured")}
-                  </span>
-                  <h3 className="text-2xl sm:text-3xl font-bold text-white mb-3 group-hover:text-amber-400 transition-colors leading-tight">
-                    {featured.title}
-                  </h3>
-                  {featured.content && (
-                    <p className="text-gray-300 line-clamp-2 text-base">
-                      {featured.content.replace(/<[^>]*>/g, "").slice(0, 200)}
-                    </p>
-                  )}
-                  <div className="flex items-center gap-3 mt-4 text-sm text-gray-400">
-                    {featured.published_at && (
-                      <span>{new Date(featured.published_at).toLocaleDateString()}</span>
-                    )}
-                    {featured.player_name && (
-                      <span className="bg-white/10 px-2 py-0.5 rounded">{featured.player_name}</span>
+      {/* Highlights */}
+      {(playerOfMonth || tournamentWinner) && (
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {playerOfMonth && (
+              <Link to={`/players/${playerOfMonth.id}`} className="group surface-elev relative overflow-hidden p-6 sm:p-8 glow-gold">
+                <div className="relative z-[1] flex items-center gap-2 mb-5">
+                  <span className="text-2xl">🏆</span>
+                  <div>
+                    <div className="text-amber-400 text-xs font-bold uppercase tracking-widest">{t("player_of_month")}</div>
+                    <div className="text-slate-500 text-xs">{t("player_of_month_sub")}</div>
+                  </div>
+                </div>
+                <div className="relative z-[1] flex items-center gap-5">
+                  <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden ring-4 ring-amber-400/40 flex-shrink-0 bg-slate-800">
+                    {playerOfMonth.image_url
+                      ? <img src={playerOfMonth.image_url} alt={playerOfMonth.name} className="w-full h-full object-cover" />
+                      : <div className="w-full h-full flex items-center justify-center text-4xl text-slate-600">♟</div>}
+                  </div>
+                  <div className="min-w-0">
+                    {playerOfMonth.title && <span className="chip chip-gold mb-2">{playerOfMonth.title}</span>}
+                    <h3 className="text-xl sm:text-2xl font-bold text-white group-hover:text-amber-400 transition truncate">{playerOfMonth.name}</h3>
+                    {playerOfMonth.country && <p className="text-slate-400 text-sm">{playerOfMonth.country}</p>}
+                    {playerOfMonth.rating && (
+                      <div className="mt-2 inline-flex items-center gap-1.5 bg-white/5 px-3 py-1 rounded-lg">
+                        <span className="text-slate-500 text-xs">{t("rating")}</span>
+                        <span className="text-white font-bold">{playerOfMonth.rating}</span>
+                      </div>
                     )}
                   </div>
                 </div>
               </Link>
-
-              {/* Side stories */}
-              <div className="lg:col-span-2 flex flex-col gap-4">
-                {sideNews.map((n) => (
-                  <Link
-                    key={n.id}
-                    to={`/news/${n.id}`}
-                    className="group flex gap-4 bg-gray-800 rounded-xl p-4 hover:bg-gray-750 transition-colors border border-gray-700/50"
-                  >
-                    {n.image_url && (
-                      <div className="w-28 h-20 rounded-lg overflow-hidden flex-shrink-0 bg-gray-700">
-                        <img src={n.image_url} alt={n.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+            )}
+            {tournamentWinner && (
+              <Link to={`/players/${tournamentWinner.id}`} className="group surface-elev relative overflow-hidden p-6 sm:p-8 glow-blue">
+                <div className="relative z-[1] flex items-center gap-2 mb-5">
+                  <span className="text-2xl">👑</span>
+                  <div>
+                    <div className="text-sky-400 text-xs font-bold uppercase tracking-widest">{t("tournament_winner")}</div>
+                    <div className="text-slate-500 text-xs">{t("tournament_winner_sub")}</div>
+                  </div>
+                </div>
+                <div className="relative z-[1] flex items-center gap-5">
+                  <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden ring-4 ring-sky-400/40 flex-shrink-0 bg-slate-800">
+                    {tournamentWinner.image_url
+                      ? <img src={tournamentWinner.image_url} alt={tournamentWinner.name} className="w-full h-full object-cover" />
+                      : <div className="w-full h-full flex items-center justify-center text-4xl text-slate-600">♟</div>}
+                  </div>
+                  <div className="min-w-0">
+                    {tournamentWinner.title && <span className="chip chip-blue mb-2">{tournamentWinner.title}</span>}
+                    <h3 className="text-xl sm:text-2xl font-bold text-white group-hover:text-sky-400 transition truncate">{tournamentWinner.name}</h3>
+                    {tournamentWinner.country && <p className="text-slate-400 text-sm">{tournamentWinner.country}</p>}
+                    {tournamentWinner.rating && (
+                      <div className="mt-2 inline-flex items-center gap-1.5 bg-white/5 px-3 py-1 rounded-lg">
+                        <span className="text-slate-500 text-xs">{t("rating")}</span>
+                        <span className="text-white font-bold">{tournamentWinner.rating}</span>
                       </div>
                     )}
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-semibold text-white text-sm line-clamp-2 group-hover:text-amber-400 transition-colors">
-                        {n.title}
-                      </h4>
-                      <div className="flex items-center gap-2 mt-2 text-xs text-gray-400">
-                        {n.published_at && <span>{new Date(n.published_at).toLocaleDateString()}</span>}
-                        {n.player_name && <span>• {n.player_name}</span>}
-                      </div>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </div>
+                  </div>
+                </div>
+              </Link>
+            )}
           </div>
         </section>
       )}
 
-      {/* Player of the Month + Tournament Winner */}
-      <section className="bg-gradient-to-b from-gray-900 to-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Player of the Month */}
-            {playerOfMonth && (
-              <Link
-                to={`/players/${playerOfMonth.id}`}
-                className="group relative rounded-2xl overflow-hidden bg-gradient-to-br from-amber-600 to-amber-800 p-1"
-              >
-                <div className="bg-gray-900 rounded-xl p-6 sm:p-8 h-full">
-                  <div className="flex items-center gap-2 mb-6">
-                    <span className="text-3xl">🏆</span>
-                    <div>
-                      <div className="text-amber-400 text-xs font-bold uppercase tracking-widest">{t("player_of_month")}</div>
-                      <div className="text-gray-500 text-xs">{t("player_of_month_sub")}</div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-5">
-                    <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden ring-4 ring-amber-600/50 flex-shrink-0 bg-gray-800">
-                      {playerOfMonth.image_url ? (
-                        <img src={playerOfMonth.image_url} alt={playerOfMonth.name} className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-4xl text-gray-500">♟</div>
-                      )}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        {playerOfMonth.title && (
-                          <span className="text-xs font-bold px-2 py-0.5 bg-amber-600/20 text-amber-400 rounded">{playerOfMonth.title}</span>
-                        )}
-                      </div>
-                      <h3 className="text-xl sm:text-2xl font-bold text-white group-hover:text-amber-400 transition-colors">{playerOfMonth.name}</h3>
-                      {playerOfMonth.country && <p className="text-gray-400 text-sm mt-1">{playerOfMonth.country}</p>}
-                      {playerOfMonth.rating && (
-                        <div className="mt-3 inline-flex items-center gap-1.5 bg-gray-800 px-3 py-1 rounded-lg">
-                          <span className="text-gray-500 text-xs">{t("rating")}</span>
-                          <span className="text-white font-bold">{playerOfMonth.rating}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </Link>
-            )}
-
-            {/* Tournament Winner */}
-            {tournamentWinner && (
-              <Link
-                to={`/players/${tournamentWinner.id}`}
-                className="group relative rounded-2xl overflow-hidden bg-gradient-to-br from-blue-600 to-blue-800 p-1"
-              >
-                <div className="bg-gray-900 rounded-xl p-6 sm:p-8 h-full">
-                  <div className="flex items-center gap-2 mb-6">
-                    <span className="text-3xl">👑</span>
-                    <div>
-                      <div className="text-blue-400 text-xs font-bold uppercase tracking-widest">{t("tournament_winner")}</div>
-                      <div className="text-gray-500 text-xs">{t("tournament_winner_sub")}</div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-5">
-                    <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden ring-4 ring-blue-600/50 flex-shrink-0 bg-gray-800">
-                      {tournamentWinner.image_url ? (
-                        <img src={tournamentWinner.image_url} alt={tournamentWinner.name} className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-4xl text-gray-500">♟</div>
-                      )}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        {tournamentWinner.title && (
-                          <span className="text-xs font-bold px-2 py-0.5 bg-blue-600/20 text-blue-400 rounded">{tournamentWinner.title}</span>
-                        )}
-                      </div>
-                      <h3 className="text-xl sm:text-2xl font-bold text-white group-hover:text-blue-400 transition-colors">{tournamentWinner.name}</h3>
-                      {tournamentWinner.country && <p className="text-gray-400 text-sm mt-1">{tournamentWinner.country}</p>}
-                      {tournamentWinner.rating && (
-                        <div className="mt-3 inline-flex items-center gap-1.5 bg-gray-800 px-3 py-1 rounded-lg">
-                          <span className="text-gray-500 text-xs">{t("rating")}</span>
-                          <span className="text-white font-bold">{tournamentWinner.rating}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </Link>
-            )}
-          </div>
-        </div>
-      </section>
-
-      {/* More News Grid */}
+      {/* Latest news grid */}
       {moreNews.length > 0 && (
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <div className="flex items-center justify-between mb-8">
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
-              <div className="h-8 w-1 bg-amber-500 rounded-full" />
-              <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">{t("latest_news")}</h2>
+              <div className="h-7 w-1 bg-amber-500 rounded-full" />
+              <h2 className="text-2xl sm:text-3xl font-bold text-white">{t("latest_news")}</h2>
             </div>
-            <Link to="/news" className="text-amber-600 hover:text-amber-700 font-medium flex items-center gap-1">
-              {t("see_all_news")} <span aria-hidden="true">→</span>
+            <Link to="/news" className="text-amber-400 hover:text-amber-300 font-medium text-sm flex items-center gap-1">
+              {t("see_all_news")} →
             </Link>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {moreNews.map((n) => (
-              <NewsCard key={n.id} item={n} />
-            ))}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {moreNews.map((n) => <NewsCard key={n.id} item={n} />)}
           </div>
         </section>
       )}
 
       {/* Featured Players */}
-      <section className="bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-          <div className="flex items-center justify-between mb-8">
-            <div className="flex items-center gap-3">
-              <div className="h-8 w-1 bg-amber-500 rounded-full" />
-              <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">{t("featured_players")}</h2>
-            </div>
-            <Link to="/players" className="text-amber-600 hover:text-amber-700 font-medium flex items-center gap-1">
-              {t("see_all_players")} <span aria-hidden="true">→</span>
-            </Link>
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="h-7 w-1 bg-amber-500 rounded-full" />
+            <h2 className="text-2xl sm:text-3xl font-bold text-white">{t("featured_players")}</h2>
           </div>
-          {players.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {players.slice(0, 8).map((p) => (
-                <PlayerCard key={p.id} player={p} />
-              ))}
-            </div>
-          ) : (
-            <p className="text-gray-500 text-center py-8">{t("no_results")}</p>
-          )}
+          <Link to="/players" className="text-amber-400 hover:text-amber-300 font-medium text-sm flex items-center gap-1">
+            {t("see_all_players")} →
+          </Link>
         </div>
+        {players.length > 0 ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5">
+            {players.slice(0, 8).map((p) => <PlayerCard key={p.id} player={p} />)}
+          </div>
+        ) : (
+          <p className="text-slate-500 text-center py-8">{t("no_results")}</p>
+        )}
       </section>
     </div>
   );

@@ -1,43 +1,36 @@
 import { Link } from "react-router-dom";
-import { useTranslation } from "react-i18next";
 
 export default function NewsCard({ item }) {
-  const { t } = useTranslation();
-
   return (
     <Link
       to={`/news/${item.id}`}
-      className="group bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden border border-gray-100 flex flex-col"
+      className="group surface overflow-hidden hover:border-amber-500/40 hover:-translate-y-0.5 transition-all duration-300 flex flex-col"
     >
-      {item.image_url && (
-        <div className="aspect-video bg-gray-200 overflow-hidden">
+      <div className="aspect-video bg-slate-800 overflow-hidden relative">
+        {item.image_url ? (
           <img
             src={item.image_url}
             alt={item.title}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            loading="lazy"
+            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
           />
-        </div>
-      )}
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-5xl text-slate-700">♟</div>
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
+      </div>
       <div className="p-4 flex-1 flex flex-col">
-        <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2 group-hover:text-amber-700 transition-colors">
+        <h3 className="font-semibold text-white mb-2 line-clamp-2 group-hover:text-amber-400 transition">
           {item.title}
         </h3>
         {item.content && (
-          <p className="text-sm text-gray-500 line-clamp-3 mb-3 flex-1">
-            {item.content.replace(/<[^>]*>/g, "").slice(0, 150)}...
+          <p className="text-sm text-slate-400 line-clamp-3 mb-3 flex-1">
+            {item.content.replace(/<[^>]*>/g, "").slice(0, 150)}…
           </p>
         )}
-        <div className="flex items-center justify-between text-xs text-gray-400 mt-auto">
-          <span>
-            {item.published_at
-              ? new Date(item.published_at).toLocaleDateString()
-              : ""}
-          </span>
-          {item.player_name && (
-            <span className="bg-gray-100 px-2 py-0.5 rounded text-gray-600">
-              {item.player_name}
-            </span>
-          )}
+        <div className="flex items-center justify-between text-xs text-slate-500 mt-auto pt-2 border-t border-white/5">
+          <span>{item.published_at ? new Date(item.published_at).toLocaleDateString() : ""}</span>
+          {item.player_name && <span className="chip chip-slate">{item.player_name}</span>}
         </div>
       </div>
     </Link>

@@ -14,41 +14,32 @@ export default function NewsDetailPage() {
     api.get(`/news/${id}?lang=${lang}`).then((r) => setNews(r.data));
   }, [id, lang]);
 
-  if (!news) return <p className="text-center py-12 text-gray-500">{t("loading")}</p>;
+  if (!news) {
+    return <div className="max-w-3xl mx-auto px-4 py-12"><div className="surface h-96 shimmer" /></div>;
+  }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <article className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+      <article className="surface-elev overflow-hidden">
         {news.image_url && (
-          <img
-            src={news.image_url}
-            alt={news.title}
-            className="w-full h-48 sm:h-72 object-cover"
-          />
+          <img src={news.image_url} alt={news.title} className="w-full h-64 sm:h-96 object-cover" />
         )}
-        <div className="p-6 sm:p-8">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-4">{news.title}</h1>
-          <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500 mb-6 border-b border-gray-100 pb-4">
-            {news.published_at && (
-              <span>{new Date(news.published_at).toLocaleDateString()}</span>
-            )}
+        <div className="p-6 sm:p-10">
+          <h1 className="text-3xl sm:text-4xl font-extrabold text-white mb-4 tracking-tight [text-wrap:balance]">
+            {news.title}
+          </h1>
+          <div className="flex flex-wrap items-center gap-3 text-sm text-slate-400 mb-6 pb-4 border-b border-white/10">
+            {news.published_at && <span>{new Date(news.published_at).toLocaleDateString()}</span>}
             {news.player_name && (
-              <Link
-                to={`/players/${news.player_id}`}
-                className="bg-amber-100 text-amber-800 px-2 py-0.5 rounded hover:bg-amber-200 transition-colors"
-              >
+              <Link to={`/players/${news.player_id}`} className="chip chip-gold hover:bg-amber-500/30 transition">
                 {news.player_name}
               </Link>
             )}
-            <span className="bg-gray-100 px-2 py-0.5 rounded text-gray-600">
-              {news.region === "both"
-                ? t("region_both")
-                : news.region === "en"
-                ? t("region_en")
-                : t("region_ar")}
+            <span className="chip chip-slate">
+              {news.region === "both" ? t("region_both") : news.region === "en" ? t("region_en") : t("region_ar")}
             </span>
           </div>
-          <div className="prose prose-gray max-w-none whitespace-pre-line leading-relaxed text-gray-700">
+          <div className="prose prose-invert max-w-none text-slate-200 leading-relaxed whitespace-pre-line">
             {news.content}
           </div>
         </div>

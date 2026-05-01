@@ -21,7 +21,7 @@ export default function LanguageDropdown({ variant = "light" }) {
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
-  const isDark = variant === "dark";
+  const isDark = variant !== "light"; // default = dark on public pages
 
   return (
     <div ref={ref} className="relative">
@@ -29,7 +29,7 @@ export default function LanguageDropdown({ variant = "light" }) {
         onClick={() => setOpen(!open)}
         className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
           isDark
-            ? "bg-gray-700 hover:bg-gray-600 text-white"
+            ? "bg-white/5 hover:bg-white/10 text-white border border-white/10"
             : "bg-amber-600 hover:bg-amber-700 text-white"
         }`}
       >
@@ -46,10 +46,10 @@ export default function LanguageDropdown({ variant = "light" }) {
       </button>
 
       {open && (
-        <div className={`absolute top-full mt-1 rounded-lg shadow-lg border overflow-hidden z-50 ${
-          isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
+        <div className={`absolute top-full mt-2 rounded-xl overflow-hidden z-50 ${
+          isDark ? "surface-elev" : "bg-white border border-gray-200 shadow-lg"
         }`}
-          style={{ minWidth: "140px", insetInlineEnd: 0 }}
+          style={{ minWidth: "160px", insetInlineEnd: 0 }}
         >
           {languages.map((l) => (
             <button
@@ -61,10 +61,10 @@ export default function LanguageDropdown({ variant = "light" }) {
               className={`w-full flex items-center gap-2 px-4 py-2.5 text-sm transition-colors ${
                 l.code === lang
                   ? isDark
-                    ? "bg-amber-600 text-white"
+                    ? "bg-amber-500/15 text-amber-300"
                     : "bg-amber-50 text-amber-700"
                   : isDark
-                  ? "text-gray-300 hover:bg-gray-700 hover:text-white"
+                  ? "text-slate-300 hover:bg-white/5 hover:text-white"
                   : "text-gray-700 hover:bg-gray-50"
               }`}
             >

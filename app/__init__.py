@@ -44,12 +44,20 @@ def create_app():
     from app.routes.news import news_bp
     from app.routes.upload import upload_bp
     from app.routes.site_strings import strings_bp
+    from app.routes.user_auth import user_auth_bp
+    from app.routes.games import games_bp
+    from app.routes.links import links_bp
+    from app.routes.messages import messages_bp
 
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
     app.register_blueprint(players_bp, url_prefix="/api/players")
     app.register_blueprint(news_bp, url_prefix="/api/news")
     app.register_blueprint(upload_bp, url_prefix="/api/upload")
     app.register_blueprint(strings_bp, url_prefix="/api/strings")
+    app.register_blueprint(user_auth_bp, url_prefix="/api/users/auth")
+    app.register_blueprint(games_bp, url_prefix="/api/games")
+    app.register_blueprint(links_bp, url_prefix="/api/links")
+    app.register_blueprint(messages_bp, url_prefix="/api/messages")
 
     @app.route("/uploads/<path:filename>")
     def uploaded_file(filename):

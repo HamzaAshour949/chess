@@ -6,6 +6,7 @@ import { playersRouter } from './players.js';
 import { newsRouter } from './news.js';
 import { siteStringsRouter } from './site-strings.js';
 import { uploadRouter } from './upload.js';
+import { gamesRouter } from './games.js';
 
 export const apiRouter: Router = Router();
 
@@ -23,3 +24,4 @@ apiRouter.use('/players', playersRouter);
 apiRouter.use('/news', newsRouter);
 apiRouter.use('/strings', siteStringsRouter);
 apiRouter.use('/upload', uploadRouter);
+apiRouter.use('/games', gamesRouter);

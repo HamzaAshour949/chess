@@ -178,3 +178,32 @@ export function turnFromFen(fen: string): 'white' | 'black' {
 export function legalMovesUci(chess: Chess): string[] {
   return chess.moves({ verbose: true }).map(toUci);
 }
+
+/**
+ * Could `color` still deliver mate with the material on the board?
+ *
+ * When a player runs out of time, FIDE awards the game only if the opponent
+ * could conceivably mate; with a bare king, or king and a single minor piece,
+ * the result is a draw instead of a win on time.
+ */
+export function canMate(fen: string, color: 'white' | 'black'): boolean {
+  const placement = fen.split(' ')[0] ?? '';
+  const isWhite = color === 'white';
+
+  let minors = 0;
+  for (const char of placement) {
+    if (char === '/' || (char >= '1' && char <= '9')) continue;
+    const pieceIsWhite = char === char.toUpperCase();
+    if (pieceIsWhite !== isWhite) continue;
+
+    const piece = char.toLowerCase();
+    if (piece === 'k') continue;
+    // A pawn, rook or queen is always enough.
+    if (piece === 'p' || piece === 'r' || piece === 'q') return true;
+    minors += 1;
+    // Two minor pieces can force or at least allow mate.
+    if (minors >= 2) return true;
+  }
+
+  return false;
+}

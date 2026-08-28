@@ -1,42 +1,49 @@
-# Python
-venv/
-__pycache__/
-*.py[cod]
-*.pyo
-*.pyd
-.Python
-*.egg-info/
-dist/
-build/
+# Laravel
+/vendor
+/node_modules
+/public/build
+/public/hot
+/public/storage
+/storage/*.key
+/storage/pail
+/bootstrap/cache/*.php
 .env
+.env.backup
+.env.production
 .env.*
 !.env.example
+.phpunit.result.cache
+/.phpunit.cache
+_ide_helper.php
+Homestead.json
+Homestead.yaml
+/auth.json
 
-# Database files
+# Local database files
 *.db
+*.sqlite
 *.sqlite3
 
-# macOS
-.DS_Store
-.AppleDouble
-.LSOverride
-
-# Uploads (keep directory, ignore contents)
-uploads/*
-!uploads/.gitkeep
-
-# Frontend
-frontend/node_modules/
-frontend/dist/
-frontend/.env
-frontend/.env.*
-
-# IDEs
-.vscode/
-.idea/
-*.swp
-*.swo
+# User uploads (keep the directory, ignore the contents)
+/public/uploads/*
+!/public/uploads/.gitkeep
 
 # Logs
 *.log
-pip-log.txt
+
+# OS
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+
+# Editors / IDEs
+/.idea
+/.vscode
+/.zed
+/.nova
+/.cursor/
+/.codex
+.phpactor.json
+*.swp
+*.swo

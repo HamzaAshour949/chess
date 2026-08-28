@@ -51,7 +51,13 @@ const userSchema = new Schema(
   { timestamps: true, collection: 'users' },
 );
 
-userSchema.index({ linkedPlayerId: 1 }, { unique: true, sparse: true });
+// Partial, not sparse: every unlinked account stores an explicit null, and a
+// sparse index only skips *missing* fields, so it would reject the second
+// unlinked account outright.
+userSchema.index(
+  { linkedPlayerId: 1 },
+  { unique: true, partialFilterExpression: { linkedPlayerId: { $type: 'objectId' } } },
+);
 userSchema.index({ onlineRating: -1 });
 userSchema.index({ isBanned: 1, isVerified: 1 });
 userSchema.index({ createdAt: -1 });

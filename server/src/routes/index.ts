@@ -7,6 +7,9 @@ import { newsRouter } from './news.js';
 import { siteStringsRouter } from './site-strings.js';
 import { uploadRouter } from './upload.js';
 import { gamesRouter } from './games.js';
+import { messagesRouter } from './messages.js';
+import { linksRouter } from './links.js';
+import { adminGamesRouter, adminMessagesRouter } from './admin-moderation.js';
 
 export const apiRouter: Router = Router();
 
@@ -24,4 +27,11 @@ apiRouter.use('/players', playersRouter);
 apiRouter.use('/news', newsRouter);
 apiRouter.use('/strings', siteStringsRouter);
 apiRouter.use('/upload', uploadRouter);
+
+// The admin routers mount first so their literal paths are matched before the
+// "/:id" patterns in the routers below them.
+apiRouter.use('/games/admin', adminGamesRouter);
+apiRouter.use('/messages/admin', adminMessagesRouter);
 apiRouter.use('/games', gamesRouter);
+apiRouter.use('/messages', messagesRouter);
+apiRouter.use('/links', linksRouter);

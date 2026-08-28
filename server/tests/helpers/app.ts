@@ -5,11 +5,29 @@ import { createApp } from '../../src/app.js';
 import { connectDatabase, disconnectDatabase, mongoose } from '../../src/db/mongoose.js';
 import { Admin, User } from '../../src/models/index.js';
 import { signToken } from '../../src/lib/jwt.js';
+import { syncIndexes } from '../../src/db/sync-indexes.js';
 
 let app: Express | null = null;
+let indexed = false;
+
+/**
+ * Connect, and make sure the indexes exist.
+ *
+ * Several indexes are constraints rather than optimisations, so they are part
+ * of the behaviour under test and must exist before the first assertion —
+ * including for tests that reach the models directly without going through the
+ * HTTP app.
+ */
+async function ready(): Promise<void> {
+  await connectDatabase();
+  if (!indexed) {
+    await syncIndexes();
+    indexed = true;
+  }
+}
 
 export async function testApp(): Promise<Express> {
-  await connectDatabase();
+  await ready();
   app ??= createApp();
   return app;
 }
@@ -20,7 +38,7 @@ export async function request() {
 
 /** Drop every document, so each test file starts from a known state. */
 export async function resetDatabase(): Promise<void> {
-  await connectDatabase();
+  await ready();
   const collections = await mongoose.connection.db?.collections();
   await Promise.all((collections ?? []).map((collection) => collection.deleteMany({})));
 }

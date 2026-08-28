@@ -1,13 +1,14 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { BlockedUser, FINISHED_STATUSES, Game, User } from '../models/index.js';
+import { BlockedUser, FINISHED_STATUSES, Game, GameMessage, User } from '../models/index.js';
 import { asyncHandler } from '../lib/async-handler.js';
 import { HttpError } from '../lib/http-error.js';
 import { objectId, parseBody, parseQuery } from '../lib/validate.js';
-import { serializeGame, serializeUser } from '../lib/serializers.js';
+import { serializeGame, serializeGameMessage, serializeUser } from '../lib/serializers.js';
 import { IllegalMoveError, playMove, turnFromFen } from '../lib/chess.js';
+import { sanitizeChat } from '../lib/sanitize.js';
 import { currentUser, optionalUser, requireUser } from '../middleware/auth.js';
-import { moveLimiter, writeLimiter } from '../middleware/rate-limit.js';
+import { chatLimiter, moveLimiter, writeLimiter } from '../middleware/rate-limit.js';
 import {
   consumeClock,
   enforceClock,
@@ -15,7 +16,7 @@ import {
   isFinished,
   sideOf,
 } from '../services/game-service.js';
-import { publishGame } from '../realtime/publish.js';
+import { publishGame, publishGameMessage } from '../realtime/publish.js';
 
 export const gamesRouter: Router = Router();
 
@@ -497,3 +498,60 @@ gamesRouter.get(
 );
 
 export { isFinished };
+
+// -------------------------------------------------------------- game chat
+
+const CHAT_MAX = 500;
+
+gamesRouter.get(
+  '/:id/chat',
+  optionalUser,
+  asyncHandler(async (req, res) => {
+    const id = objectId.parse(req.params.id);
+
+    const exists = await Game.exists({ _id: id });
+    if (!exists) throw HttpError.notFound('Game not found');
+
+    const messages = await GameMessage.find({ gameId: id })
+      .sort({ createdAt: 1 })
+      .limit(200)
+      .populate('userId', 'username displayName');
+
+    res.json(messages.map(serializeGameMessage));
+  }),
+);
+
+const chatSchema = z.object({
+  content: z.string().min(1, 'Message is empty').max(2000),
+});
+
+gamesRouter.post(
+  '/:id/chat',
+  requireUser,
+  chatLimiter,
+  asyncHandler(async (req, res) => {
+    const id = objectId.parse(req.params.id);
+    const { content } = parseBody(chatSchema, req);
+    const user = currentUser(req);
+
+    const game = await Game.findById(id);
+    if (!game) throw HttpError.notFound('Game not found');
+    if (game.chatDisabled) throw HttpError.forbidden('Chat is disabled for this game');
+    if (user.chatMuted) throw HttpError.forbidden('You are muted from chat');
+    if (!sideOf(game, String(user._id))) {
+      throw HttpError.forbidden('Only the players can chat in this game');
+    }
+
+    // Links are stripped before truncation, so replacing one can never push the
+    // message back over the limit.
+    const clean = sanitizeChat(content, CHAT_MAX);
+    if (!clean) throw HttpError.badRequest('Message is empty');
+
+    const message = await GameMessage.create({ gameId: id, userId: user._id, content: clean });
+    await message.populate('userId', 'username displayName');
+
+    const payload = serializeGameMessage(message);
+    publishGameMessage(id, payload);
+    res.status(201).json(payload);
+  }),
+);

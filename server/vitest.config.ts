@@ -17,6 +17,8 @@ export default defineConfig({
       // Keep hashing cheap: the suite creates a lot of accounts.
       BCRYPT_ROUNDS: '10',
       BREVO_API_KEY: '',
+      // Keep test uploads out of the real uploads directory.
+      UPLOAD_DIR: '.test-uploads',
       LOG_LEVEL: 'silent',
     },
   },

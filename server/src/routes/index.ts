@@ -2,6 +2,10 @@ import { Router } from 'express';
 import { authenticate } from '../middleware/auth.js';
 import { authRouter } from './auth.js';
 import { userAuthRouter } from './user-auth.js';
+import { playersRouter } from './players.js';
+import { newsRouter } from './news.js';
+import { siteStringsRouter } from './site-strings.js';
+import { uploadRouter } from './upload.js';
 
 export const apiRouter: Router = Router();
 
@@ -15,3 +19,7 @@ apiRouter.get('/health', (_req, res) => {
 
 apiRouter.use('/auth', authRouter);
 apiRouter.use('/users/auth', userAuthRouter);
+apiRouter.use('/players', playersRouter);
+apiRouter.use('/news', newsRouter);
+apiRouter.use('/strings', siteStringsRouter);
+apiRouter.use('/upload', uploadRouter);

@@ -1,0 +1,1140 @@
+{
+  "news": [
+    {
+      "region": "both",
+      "title_ar": "كارلسن يفوز ببطولة العالم للسريع بأداء مهيمن",
+      "title_en": "Carlsen Wins Rapid Championship in Dominant Fashion",
+      "image_url": "https://placehold.co/800x400/1e293b/f59e0b?text=Carlsen+Wins+Rapid",
+      "published": true,
+      "content_ar": "أثبت ماغنوس كارلسن مرة أخرى هيمنته في الشطرنج السريع بفوزه ببطولة العالم للسريع. سجل النرويجي 10.5 من 13 نقطة، وخسر مباراة واحدة فقط طوال البطولة. يعزز فوزه مكانته كأعظم لاعب سريع في التاريخ.",
+      "content_en": "Magnus Carlsen once again proved his dominance in rapid chess by winning the World Rapid Championship. The Norwegian scored an impressive 10.5/13, losing only one game throughout the entire tournament. His victory cements his status as the greatest rapid player of all time.",
+      "is_featured": true,
+      "player_legacy_id": 1
+    },
+    {
+      "region": "both",
+      "title_ar": "دينغ ليرين يدافع عن لقبه العالمي في مباراة مثيرة",
+      "title_en": "Ding Liren Defends World Title in Thrilling Match",
+      "image_url": "https://placehold.co/800x400/1e293b/60a5fa?text=Ding+Defends+Title",
+      "published": true,
+      "content_ar": "نجح بطل العالم دينغ ليرين في الدفاع عن لقبه في مباراة شاقة من 14 جولة وصلت إلى الأدوار الفاصلة. أظهر الأستاذ الكبير الصيني مرونة رائعة، عائداً من تأخر بنقطتين ليعادل النتيجة وينتصر في النهاية في الأدوار السريعة.",
+      "content_en": "World Champion Ding Liren successfully defended his title in a grueling 14-game match that went to tiebreaks. The Chinese grandmaster showed remarkable resilience, coming back from a two-game deficit to level the score and ultimately prevail in rapid playoffs.",
+      "is_featured": false,
+      "player_legacy_id": 2
+    },
+    {
+      "region": "en",
+      "title_ar": null,
+      "title_en": "Nakamura Breaks Twitch Streaming Record with 100K Viewers",
+      "image_url": "https://placehold.co/800x400/1e293b/f472b6?text=Nakamura+Streaming",
+      "published": true,
+      "content_ar": null,
+      "content_en": "Hikaru Nakamura shattered streaming records during his coverage of the World Championship, attracting over 100,000 concurrent viewers on Twitch. The American grandmaster's entertaining commentary and rapid analysis have made him the most-watched chess personality online.",
+      "is_featured": false,
+      "player_legacy_id": 3
+    },
+    {
+      "region": "both",
+      "title_ar": "فيروزجا يعود لأفضل مستوياته بفوزه ببطولة كبرى",
+      "title_en": "Firouzja Returns to Top Form with Tournament Victory",
+      "image_url": "https://placehold.co/800x400/1e293b/a78bfa?text=Firouzja+Returns",
+      "published": true,
+      "content_ar": "بعد فترة من النتائج غير المستقرة، عاد علي رضا فيروزجا بقوة إلى القمة بأداء مهيمن في بطولة تاتا ستيل للأساتذة. فاز المعجزة الفرنسية-الإيرانية بالبطولة قبل جولة من النهاية، مذكراً عالم الشطرنج بموهبته الهائلة.",
+      "content_en": "After a period of inconsistent results, Alireza Firouzja stormed back to the top with a dominant performance at the Tata Steel Masters. The French-Iranian prodigy won the tournament with a round to spare, reminding the chess world of his immense talent.",
+      "is_featured": false,
+      "player_legacy_id": 5
+    },
+    {
+      "region": "ar",
+      "title_ar": "بطولة الشطرنج العربية الكبرى تنطلق الشهر المقبل",
+      "title_en": null,
+      "image_url": "https://placehold.co/800x400/1e293b/fbbf24?text=بطولة+عربية",
+      "published": true,
+      "content_ar": "تنطلق بطولة الشطرنج العربية الكبرى الشهر المقبل في الرياض بمشاركة أبرز اللاعبين من المنطقة العربية. تشهد البطولة مشاركة أكثر من 200 لاعب من 20 دولة عربية، وتُقام تحت رعاية الاتحاد العربي للشطرنج بجوائز تتجاوز 500 ألف دولار.",
+      "content_en": null,
+      "is_featured": false,
+      "player_legacy_id": null
+    },
+    {
+      "region": "both",
+      "title_ar": "براغناناندا يفاجئ كارلسن في مباراة كلاسيكية",
+      "title_en": "Praggnanandhaa Stuns Carlsen in Classical Game",
+      "image_url": "https://placehold.co/800x400/1e293b/fbbf24?text=Pragg+vs+Carlsen",
+      "published": true,
+      "content_ar": "فاجأ المعجزة الهندي راميشبابو براغناناندا ماغنوس كارلسن في مباراة كلاسيكية رائعة في بطولة النرويج للشطرنج. أظهر اللاعب البالغ 20 عاماً تقنية استثنائية في نهاية اللعب لتحويل ميزة طفيفة إلى نقطة كاملة ضد الأسطورة النرويجية.",
+      "content_en": "Indian prodigy Rameshbabu Praggnanandhaa defeated Magnus Carlsen in a brilliantly played classical game at the Norway Chess tournament. The 20-year-old showcased exceptional endgame technique to convert a slight advantage into a full point against the legendary Norwegian.",
+      "is_featured": false,
+      "player_legacy_id": 7
+    },
+    {
+      "region": "both",
+      "title_ar": "غوكيش يصبح أصغر فائز بدورة المرشحين",
+      "title_en": "Gukesh Becomes Youngest Candidates Winner",
+      "image_url": "https://placehold.co/800x400/1e293b/2dd4bf?text=Gukesh+Candidates",
+      "published": true,
+      "content_ar": "في عمر 19 عاماً فقط، فاز غوكيش دوماراجو بدورة المرشحين ليحصل على حق التحدي على لقب بطولة العالم. لم يخسر الموهبة الهندية أي مباراة خلال 14 جولة، ولعب بنضج يفوق سنه بكثير.",
+      "content_en": "At just 19 years old, Gukesh Dommaraju has won the Candidates Tournament, earning the right to challenge for the World Championship. The Indian sensation went undefeated through 14 rounds, playing with a maturity far beyond his years.",
+      "is_featured": false,
+      "player_legacy_id": 8
+    },
+    {
+      "region": "ar",
+      "title_ar": "سالم صالح يحقق إنجازاً تاريخياً للشطرنج العربي",
+      "title_en": null,
+      "image_url": "https://placehold.co/800x400/1e293b/4ade80?text=سالم+صالح",
+      "published": true,
+      "content_ar": "حقق الأستاذ الكبير الإماراتي سالم صالح إنجازاً تاريخياً بتأهله إلى دورة المرشحين لبطولة العالم للشطرنج، ليصبح أول لاعب عربي يصل إلى هذه المرحلة المتقدمة. يأتي هذا الإنجاز تتويجاً لمسيرة حافلة بالنجاحات على المستوى الإقليمي والدولي.",
+      "content_en": null,
+      "is_featured": false,
+      "player_legacy_id": 11
+    },
+    {
+      "region": "en",
+      "title_ar": null,
+      "title_en": "US Chess Championship Preview: Caruana vs Nakamura Headline",
+      "image_url": "https://placehold.co/800x400/1e293b/34d399?text=US+Championship",
+      "published": true,
+      "content_ar": null,
+      "content_en": "The 2026 US Chess Championship promises to be one of the most exciting editions yet, with Fabiano Caruana and Hikaru Nakamura leading a stacked field. Both players are in exceptional form heading into the tournament, setting the stage for an epic rivalry showdown.",
+      "is_featured": false,
+      "player_legacy_id": 4
+    },
+    {
+      "region": "both",
+      "title_ar": "عبد الستاروف يقود أوزبكستان لذهبية تاريخية في الأولمبياد",
+      "title_en": "Abdusattorov Leads Uzbekistan to Historic Olympiad Gold",
+      "image_url": "https://placehold.co/800x400/1e293b/f87171?text=Uzbekistan+Gold",
+      "published": true,
+      "content_ar": "قاد نودربك عبد الستاروف أوزبكستان لميدالية ذهبية مذهلة في أولمبياد الشطرنج، بأداء فردي مهيمن على الرقعة الأولى. سجل الأستاذ الكبير الشاب 9 من 11 نقطة، متضمنة انتصارات على ثلاثة من أفضل 10 لاعبين في العالم.",
+      "content_en": "Nodirbek Abdusattorov led Uzbekistan to a stunning gold medal at the Chess Olympiad, with a dominant individual performance on board one. The young grandmaster scored 9/11, including victories over three top-10 players.",
+      "is_featured": false,
+      "player_legacy_id": 10
+    },
+    {
+      "region": "ar",
+      "title_ar": "باسم أمين يكسر حاجز تصنيف 2700 مجدداً",
+      "title_en": null,
+      "image_url": "https://placehold.co/800x400/1e293b/38bdf8?text=باسم+أمين",
+      "published": true,
+      "content_ar": "عاد الأستاذ الكبير المصري باسم أمين لتخطي حاجز تصنيف 2700 بعد أدائه المتميز في بطولة جبل طارق للشطرنج. يؤكد هذا الإنجاز مكانته كأحد أبرز اللاعبين في القارة الأفريقية والوطن العربي.",
+      "content_en": null,
+      "is_featured": false,
+      "player_legacy_id": 12
+    },
+    {
+      "region": "both",
+      "title_ar": "الذكاء الاصطناعي يصل لمستوى جديد في الشطرنج",
+      "title_en": "Chess AI Reaches New Milestone: Can It Beat Stockfish?",
+      "image_url": "https://placehold.co/800x400/1e293b/c084fc?text=Chess+AI",
+      "published": true,
+      "content_ar": "ظهر محرك شطرنج جديد بالذكاء الاصطناعي ينافس على صدارة ستوكفيش. طوره فريق من الباحثين، ويستخدم المحرك بنية شبكة عصبية مبتكرة تقيّم المواقف بطرق مختلفة جذرياً عن المحركات التقليدية.",
+      "content_en": "A new AI chess engine has emerged that challenges the supremacy of Stockfish. Developed by a team of researchers, the engine uses a novel neural network architecture that evaluates positions in fundamentally different ways than traditional engines.",
+      "is_featured": false,
+      "player_legacy_id": null
+    },
+    {
+      "region": "en",
+      "title_ar": null,
+      "title_en": "Nepomniachtchi Announces Retirement from World Championship Cycle",
+      "image_url": "https://placehold.co/800x400/1e293b/fb923c?text=Nepo+Announcement",
+      "published": true,
+      "content_ar": null,
+      "content_en": "Ian Nepomniachtchi has announced he will no longer compete in the World Championship cycle, focusing instead on individual tournaments and rapid events. After two unsuccessful World Championship matches, the Russian grandmaster says he wants to enjoy chess without the pressure.",
+      "is_featured": false,
+      "player_legacy_id": 6
+    },
+    {
+      "region": "both",
+      "title_ar": "غيري يفوز ببطولة هولندا للمرة الخامسة",
+      "title_en": "Giri Wins Dutch Championship for Record 5th Time",
+      "image_url": "https://placehold.co/800x400/1e293b/e879f9?text=Giri+Dutch+Champion",
+      "published": true,
+      "content_ar": "حصد أنيش غيري لقب بطولة هولندا للمرة الخامسة، محطماً رقمه القياسي. فاز أفضل لاعب في هولندا بالبطولة قبل جولة من النهاية، مستعرضاً أسلوبه المتين والحازم المعروف.",
+      "content_en": "Anish Giri claimed his fifth Dutch Championship title, extending his own record. The Netherlands' top player won the event with a round to spare, showcasing his trademark solid and uncompromising style.",
+      "is_featured": false,
+      "player_legacy_id": 9
+    }
+  ],
+  "players": [
+    {
+      "title": "GM",
+      "bio_ar": "أستاذ كبير نرويجي في الشطرنج، يُعتبر على نطاق واسع أعظم لاعب شطرنج في التاريخ. حمل لقب بطل العالم في الشطرنج من 2013 إلى 2023.",
+      "bio_en": "Norwegian chess grandmaster, widely regarded as the greatest chess player of all time. He held the World Chess Championship title from 2013 to 2023.",
+      "rating": 2830,
+      "country": "Norway",
+      "name_ar": "ماغنوس كارلسن",
+      "name_en": "Magnus Carlsen",
+      "image_url": "https://placehold.co/400x300/1e293b/f59e0b?text=Carlsen",
+      "legacy_id": 1,
+      "date_of_birth": "1990-11-30",
+      "is_player_of_month": true,
+      "is_tournament_winner": false
+    },
+    {
+      "title": "GM",
+      "bio_ar": "أستاذ كبير صيني في الشطرنج وبطل العالم الحالي. يُعرف بأسلوبه الموضعي المتين وتقنيته العميقة في نهاية اللعب.",
+      "bio_en": "Chinese chess grandmaster and the reigning World Chess Champion. Known for his solid positional style and deep endgame technique.",
+      "rating": 2780,
+      "country": "China",
+      "name_ar": "دينغ ليرين",
+      "name_en": "Ding Liren",
+      "image_url": "https://placehold.co/400x300/1e293b/60a5fa?text=Ding+Liren",
+      "legacy_id": 2,
+      "date_of_birth": "1992-10-24",
+      "is_player_of_month": false,
+      "is_tournament_winner": true
+    },
+    {
+      "title": "GM",
+      "bio_ar": "أستاذ كبير أمريكي في الشطرنج ومن أشهر ناشري محتوى الشطرنج في العالم. بطل الشطرنج الأمريكي خمس مرات ويُعرف بلعبه الهجومي في الخاطف.",
+      "bio_en": "American chess grandmaster and one of the most popular chess streamers in the world. Five-time US Chess Champion known for his aggressive blitz play.",
+      "rating": 2760,
+      "country": "USA",
+      "name_ar": "هيكارو ناكامورا",
+      "name_en": "Hikaru Nakamura",
+      "image_url": "https://placehold.co/400x300/1e293b/f472b6?text=Nakamura",
+      "legacy_id": 3,
+      "date_of_birth": "1987-12-09",
+      "is_player_of_month": false,
+      "is_tournament_winner": false
+    },
+    {
+      "title": "GM",
+      "bio_ar": "أستاذ كبير إيطالي-أمريكي في الشطرنج نافس كارلسن على بطولة العالم في 2018. يُعرف بتحضيره الاستثنائي للافتتاحيات.",
+      "bio_en": "Italian-American chess grandmaster who challenged Magnus Carlsen for the World Championship in 2018. Known for his exceptional opening preparation.",
+      "rating": 2795,
+      "country": "USA",
+      "name_ar": "فابيانو كاروانا",
+      "name_en": "Fabiano Caruana",
+      "image_url": "https://placehold.co/400x300/1e293b/34d399?text=Caruana",
+      "legacy_id": 4,
+      "date_of_birth": "1992-07-30",
+      "is_player_of_month": false,
+      "is_tournament_winner": false
+    },
+    {
+      "title": "GM",
+      "bio_ar": "معجزة شطرنجية فرنسية-إيرانية، أصبح أصغر لاعب في التاريخ يصل إلى تصنيف 2800 فيدي. يُعرف بأسلوبه الإبداعي والديناميكي.",
+      "bio_en": "French-Iranian chess prodigy who became the youngest player ever to reach 2800 FIDE rating. Known for his creative and dynamic playing style.",
+      "rating": 2785,
+      "country": "France",
+      "name_ar": "علي رضا فيروزجا",
+      "name_en": "Alireza Firouzja",
+      "image_url": "https://placehold.co/400x300/1e293b/a78bfa?text=Firouzja",
+      "legacy_id": 5,
+      "date_of_birth": "2003-06-18",
+      "is_player_of_month": false,
+      "is_tournament_winner": false
+    },
+    {
+      "title": "GM",
+      "bio_ar": "أستاذ كبير روسي في الشطرنج نافس على بطولة العالم مرتين. يُعرف بأسلوبه السريع والحدسي في اللعب.",
+      "bio_en": "Russian chess grandmaster who twice challenged for the World Chess Championship. Known for his fast and intuitive playing style.",
+      "rating": 2770,
+      "country": "Russia",
+      "name_ar": "إيان نيبومنياتشي",
+      "name_en": "Ian Nepomniachtchi",
+      "image_url": "https://placehold.co/400x300/1e293b/fb923c?text=Nepo",
+      "legacy_id": 6,
+      "date_of_birth": "1990-07-14",
+      "is_player_of_month": false,
+      "is_tournament_winner": false
+    },
+    {
+      "title": "GM",
+      "bio_ar": "معجزة شطرنجية هندية أصبح أصغر أستاذ دولي في التاريخ. نجم صاعد حقق انتصارات على عدة أبطال عالم.",
+      "bio_en": "Indian chess prodigy who became the youngest International Master in history. Rising star with victories over multiple World Champions.",
+      "rating": 2747,
+      "country": "India",
+      "name_ar": "راميشبابو براغناناندا",
+      "name_en": "Rameshbabu Praggnanandhaa",
+      "image_url": "https://placehold.co/400x300/1e293b/fbbf24?text=Pragg",
+      "legacy_id": 7,
+      "date_of_birth": "2005-08-10",
+      "is_player_of_month": false,
+      "is_tournament_winner": false
+    },
+    {
+      "title": "GM",
+      "bio_ar": "أستاذ كبير هندي في الشطرنج ومن أصغر الحاصلين على لقب أستاذ كبير. عضو أساسي في فريق الهند الفائز بالميدالية الذهبية في الأولمبياد.",
+      "bio_en": "Indian chess grandmaster and one of the youngest GMs ever. A key member of India's gold medal-winning Olympiad team.",
+      "rating": 2758,
+      "country": "India",
+      "name_ar": "غوكيش دوماراجو",
+      "name_en": "Gukesh Dommaraju",
+      "image_url": "https://placehold.co/400x300/1e293b/2dd4bf?text=Gukesh",
+      "legacy_id": 8,
+      "date_of_birth": "2006-05-29",
+      "is_player_of_month": false,
+      "is_tournament_winner": false
+    },
+    {
+      "title": "GM",
+      "bio_ar": "أستاذ كبير هولندي ولد في روسيا، يُعرف بأسلوبه المتين والموضعي. يحتل باستمرار مراكز ضمن أفضل 10 في العالم.",
+      "bio_en": "Dutch chess grandmaster born in Russia, known for his solid and positional style. Consistently ranked in the world's top 10.",
+      "rating": 2740,
+      "country": "Netherlands",
+      "name_ar": "أنيش غيري",
+      "name_en": "Anish Giri",
+      "image_url": "https://placehold.co/400x300/1e293b/e879f9?text=Giri",
+      "legacy_id": 9,
+      "date_of_birth": "1994-06-28",
+      "is_player_of_month": false,
+      "is_tournament_winner": false
+    },
+    {
+      "title": "GM",
+      "bio_ar": "أستاذ كبير أوزبكي في الشطرنج فاز ببطولة العالم للسريع عن عمر 17 عاماً، متغلباً على كارلسن وكاروانا.",
+      "bio_en": "Uzbek chess grandmaster who won the World Rapid Championship at age 17, defeating Carlsen and Caruana along the way.",
+      "rating": 2727,
+      "country": "Uzbekistan",
+      "name_ar": "نودربك عبد الستاروف",
+      "name_en": "Nodirbek Abdusattorov",
+      "image_url": "https://placehold.co/400x300/1e293b/f87171?text=Abdusattorov",
+      "legacy_id": 10,
+      "date_of_birth": "2004-09-18",
+      "is_player_of_month": false,
+      "is_tournament_winner": false
+    },
+    {
+      "title": "GM",
+      "bio_ar": "أستاذ كبير إماراتي في الشطرنج وأعلى لاعب عربي تصنيفاً. رائد في الشطرنج في منطقة الشرق الأوسط.",
+      "bio_en": "Emirati chess grandmaster and the highest-rated Arab chess player. A pioneer for chess in the Middle East region.",
+      "rating": 2694,
+      "country": "UAE",
+      "name_ar": "سالم صالح",
+      "name_en": "Salem Saleh",
+      "image_url": "https://placehold.co/400x300/1e293b/4ade80?text=Salem",
+      "legacy_id": 11,
+      "date_of_birth": "1993-08-31",
+      "is_player_of_month": false,
+      "is_tournament_winner": false
+    },
+    {
+      "title": "GM",
+      "bio_ar": "أستاذ كبير مصري في الشطرنج وأول لاعب أفريقي يتخطى حاجز تصنيف 2700. بطل أفريقيا عدة مرات.",
+      "bio_en": "Egyptian chess grandmaster and Africa's first player to cross the 2700 rating barrier. Multiple-time African Champion.",
+      "rating": 2704,
+      "country": "Egypt",
+      "name_ar": "باسم أمين",
+      "name_en": "Amin Bassem",
+      "image_url": "https://placehold.co/400x300/1e293b/38bdf8?text=Bassem",
+      "legacy_id": 12,
+      "date_of_birth": "1988-09-01",
+      "is_player_of_month": false,
+      "is_tournament_winner": false
+    }
+  ],
+  "site_strings": [
+    {
+      "key": "app_name",
+      "lang": "en",
+      "value": "Chess Players"
+    },
+    {
+      "key": "home",
+      "lang": "en",
+      "value": "Home"
+    },
+    {
+      "key": "players",
+      "lang": "en",
+      "value": "Players"
+    },
+    {
+      "key": "news",
+      "lang": "en",
+      "value": "News"
+    },
+    {
+      "key": "admin",
+      "lang": "en",
+      "value": "Admin Panel"
+    },
+    {
+      "key": "login",
+      "lang": "en",
+      "value": "Login"
+    },
+    {
+      "key": "logout",
+      "lang": "en",
+      "value": "Logout"
+    },
+    {
+      "key": "search",
+      "lang": "en",
+      "value": "Search..."
+    },
+    {
+      "key": "no_results",
+      "lang": "en",
+      "value": "No results found"
+    },
+    {
+      "key": "loading",
+      "lang": "en",
+      "value": "Loading..."
+    },
+    {
+      "key": "view_profile",
+      "lang": "en",
+      "value": "View Profile"
+    },
+    {
+      "key": "rating",
+      "lang": "en",
+      "value": "Rating"
+    },
+    {
+      "key": "title",
+      "lang": "en",
+      "value": "Title"
+    },
+    {
+      "key": "country",
+      "lang": "en",
+      "value": "Country"
+    },
+    {
+      "key": "date_of_birth",
+      "lang": "en",
+      "value": "Date of Birth"
+    },
+    {
+      "key": "biography",
+      "lang": "en",
+      "value": "Biography"
+    },
+    {
+      "key": "player_news",
+      "lang": "en",
+      "value": "Player News"
+    },
+    {
+      "key": "latest_news",
+      "lang": "en",
+      "value": "Latest News"
+    },
+    {
+      "key": "read_more",
+      "lang": "en",
+      "value": "Read More"
+    },
+    {
+      "key": "published",
+      "lang": "en",
+      "value": "Published"
+    },
+    {
+      "key": "unpublished",
+      "lang": "en",
+      "value": "Draft"
+    },
+    {
+      "key": "all_regions",
+      "lang": "en",
+      "value": "All Regions"
+    },
+    {
+      "key": "region",
+      "lang": "en",
+      "value": "Region"
+    },
+    {
+      "key": "region_en",
+      "lang": "en",
+      "value": "English Region"
+    },
+    {
+      "key": "region_ar",
+      "lang": "en",
+      "value": "Arabic Region"
+    },
+    {
+      "key": "region_both",
+      "lang": "en",
+      "value": "Both Regions"
+    },
+    {
+      "key": "manage_players",
+      "lang": "en",
+      "value": "Manage Players"
+    },
+    {
+      "key": "manage_news",
+      "lang": "en",
+      "value": "Manage News"
+    },
+    {
+      "key": "add_player",
+      "lang": "en",
+      "value": "Add Player"
+    },
+    {
+      "key": "edit_player",
+      "lang": "en",
+      "value": "Edit Player"
+    },
+    {
+      "key": "delete_player",
+      "lang": "en",
+      "value": "Delete Player"
+    },
+    {
+      "key": "add_news",
+      "lang": "en",
+      "value": "Add News"
+    },
+    {
+      "key": "edit_news",
+      "lang": "en",
+      "value": "Edit News"
+    },
+    {
+      "key": "delete_news",
+      "lang": "en",
+      "value": "Delete News"
+    },
+    {
+      "key": "name_en",
+      "lang": "en",
+      "value": "Name (English)"
+    },
+    {
+      "key": "name_ar",
+      "lang": "en",
+      "value": "Name (Arabic)"
+    },
+    {
+      "key": "bio_en",
+      "lang": "en",
+      "value": "Bio (English)"
+    },
+    {
+      "key": "bio_ar",
+      "lang": "en",
+      "value": "Bio (Arabic)"
+    },
+    {
+      "key": "title_en",
+      "lang": "en",
+      "value": "Title (English)"
+    },
+    {
+      "key": "title_ar",
+      "lang": "en",
+      "value": "Title (Arabic)"
+    },
+    {
+      "key": "content_en",
+      "lang": "en",
+      "value": "Content (English)"
+    },
+    {
+      "key": "content_ar",
+      "lang": "en",
+      "value": "Content (Arabic)"
+    },
+    {
+      "key": "save",
+      "lang": "en",
+      "value": "Save"
+    },
+    {
+      "key": "cancel",
+      "lang": "en",
+      "value": "Cancel"
+    },
+    {
+      "key": "confirm_delete",
+      "lang": "en",
+      "value": "Are you sure you want to delete this?"
+    },
+    {
+      "key": "dashboard",
+      "lang": "en",
+      "value": "Dashboard"
+    },
+    {
+      "key": "total_players",
+      "lang": "en",
+      "value": "Total Players"
+    },
+    {
+      "key": "total_news",
+      "lang": "en",
+      "value": "Total News"
+    },
+    {
+      "key": "published_news",
+      "lang": "en",
+      "value": "Published News"
+    },
+    {
+      "key": "draft_news",
+      "lang": "en",
+      "value": "Draft News"
+    },
+    {
+      "key": "username",
+      "lang": "en",
+      "value": "Username"
+    },
+    {
+      "key": "password",
+      "lang": "en",
+      "value": "Password"
+    },
+    {
+      "key": "image",
+      "lang": "en",
+      "value": "Image"
+    },
+    {
+      "key": "upload_image",
+      "lang": "en",
+      "value": "Upload Image"
+    },
+    {
+      "key": "select_player",
+      "lang": "en",
+      "value": "Select Player (optional)"
+    },
+    {
+      "key": "page",
+      "lang": "en",
+      "value": "Page"
+    },
+    {
+      "key": "of",
+      "lang": "en",
+      "value": "of"
+    },
+    {
+      "key": "previous",
+      "lang": "en",
+      "value": "Previous"
+    },
+    {
+      "key": "next",
+      "lang": "en",
+      "value": "Next"
+    },
+    {
+      "key": "language",
+      "lang": "en",
+      "value": "Language"
+    },
+    {
+      "key": "english",
+      "lang": "en",
+      "value": "English"
+    },
+    {
+      "key": "arabic",
+      "lang": "en",
+      "value": "العربية"
+    },
+    {
+      "key": "welcome",
+      "lang": "en",
+      "value": "Welcome to Chess Players Hub"
+    },
+    {
+      "key": "welcome_desc",
+      "lang": "en",
+      "value": "Your source for chess player profiles and news from around the world"
+    },
+    {
+      "key": "featured_players",
+      "lang": "en",
+      "value": "Featured Players"
+    },
+    {
+      "key": "see_all_players",
+      "lang": "en",
+      "value": "See All Players"
+    },
+    {
+      "key": "see_all_news",
+      "lang": "en",
+      "value": "See All News"
+    },
+    {
+      "key": "featured_news",
+      "lang": "en",
+      "value": "Featured News"
+    },
+    {
+      "key": "featured",
+      "lang": "en",
+      "value": "Featured"
+    },
+    {
+      "key": "hero_badge",
+      "lang": "en",
+      "value": "The Home of Chess"
+    },
+    {
+      "key": "countries",
+      "lang": "en",
+      "value": "Countries"
+    },
+    {
+      "key": "player_of_month",
+      "lang": "en",
+      "value": "Player of the Month"
+    },
+    {
+      "key": "player_of_month_sub",
+      "lang": "en",
+      "value": "Top performing player this month"
+    },
+    {
+      "key": "tournament_winner",
+      "lang": "en",
+      "value": "World Champion"
+    },
+    {
+      "key": "tournament_winner_sub",
+      "lang": "en",
+      "value": "Reigning World Chess Champion"
+    },
+    {
+      "key": "site_strings",
+      "lang": "en",
+      "value": "Site Strings"
+    },
+    {
+      "key": "add_string",
+      "lang": "en",
+      "value": "Add String"
+    },
+    {
+      "key": "mark_featured",
+      "lang": "en",
+      "value": "Featured on Homepage"
+    },
+    {
+      "key": "featured_hint",
+      "lang": "en",
+      "value": "Only one news article can be featured at a time. Selecting this will remove the featured flag from any other article."
+    },
+    {
+      "key": "homepage_highlights",
+      "lang": "en",
+      "value": "Homepage Highlights"
+    },
+    {
+      "key": "highlight_hint",
+      "lang": "en",
+      "value": "Only one player can hold each highlight at a time. Toggling will automatically unset the previous holder."
+    },
+    {
+      "key": "app_name",
+      "lang": "ar",
+      "value": "لاعبو الشطرنج"
+    },
+    {
+      "key": "home",
+      "lang": "ar",
+      "value": "الرئيسية"
+    },
+    {
+      "key": "players",
+      "lang": "ar",
+      "value": "اللاعبون"
+    },
+    {
+      "key": "news",
+      "lang": "ar",
+      "value": "الأخبار"
+    },
+    {
+      "key": "admin",
+      "lang": "ar",
+      "value": "لوحة التحكم"
+    },
+    {
+      "key": "login",
+      "lang": "ar",
+      "value": "تسجيل الدخول"
+    },
+    {
+      "key": "logout",
+      "lang": "ar",
+      "value": "تسجيل الخروج"
+    },
+    {
+      "key": "search",
+      "lang": "ar",
+      "value": "بحث..."
+    },
+    {
+      "key": "no_results",
+      "lang": "ar",
+      "value": "لا توجد نتائج"
+    },
+    {
+      "key": "loading",
+      "lang": "ar",
+      "value": "جاري التحميل..."
+    },
+    {
+      "key": "view_profile",
+      "lang": "ar",
+      "value": "عرض الملف الشخصي"
+    },
+    {
+      "key": "rating",
+      "lang": "ar",
+      "value": "التصنيف"
+    },
+    {
+      "key": "title",
+      "lang": "ar",
+      "value": "اللقب"
+    },
+    {
+      "key": "country",
+      "lang": "ar",
+      "value": "الدولة"
+    },
+    {
+      "key": "date_of_birth",
+      "lang": "ar",
+      "value": "تاريخ الميلاد"
+    },
+    {
+      "key": "biography",
+      "lang": "ar",
+      "value": "السيرة الذاتية"
+    },
+    {
+      "key": "player_news",
+      "lang": "ar",
+      "value": "أخبار اللاعب"
+    },
+    {
+      "key": "latest_news",
+      "lang": "ar",
+      "value": "آخر الأخبار"
+    },
+    {
+      "key": "read_more",
+      "lang": "ar",
+      "value": "اقرأ المزيد"
+    },
+    {
+      "key": "published",
+      "lang": "ar",
+      "value": "منشور"
+    },
+    {
+      "key": "unpublished",
+      "lang": "ar",
+      "value": "مسودة"
+    },
+    {
+      "key": "all_regions",
+      "lang": "ar",
+      "value": "جميع المناطق"
+    },
+    {
+      "key": "region",
+      "lang": "ar",
+      "value": "المنطقة"
+    },
+    {
+      "key": "region_en",
+      "lang": "ar",
+      "value": "المنطقة الإنجليزية"
+    },
+    {
+      "key": "region_ar",
+      "lang": "ar",
+      "value": "المنطقة العربية"
+    },
+    {
+      "key": "region_both",
+      "lang": "ar",
+      "value": "كلتا المنطقتين"
+    },
+    {
+      "key": "manage_players",
+      "lang": "ar",
+      "value": "إدارة اللاعبين"
+    },
+    {
+      "key": "manage_news",
+      "lang": "ar",
+      "value": "إدارة الأخبار"
+    },
+    {
+      "key": "add_player",
+      "lang": "ar",
+      "value": "إضافة لاعب"
+    },
+    {
+      "key": "edit_player",
+      "lang": "ar",
+      "value": "تعديل لاعب"
+    },
+    {
+      "key": "delete_player",
+      "lang": "ar",
+      "value": "حذف لاعب"
+    },
+    {
+      "key": "add_news",
+      "lang": "ar",
+      "value": "إضافة خبر"
+    },
+    {
+      "key": "edit_news",
+      "lang": "ar",
+      "value": "تعديل خبر"
+    },
+    {
+      "key": "delete_news",
+      "lang": "ar",
+      "value": "حذف خبر"
+    },
+    {
+      "key": "name_en",
+      "lang": "ar",
+      "value": "الاسم (إنجليزي)"
+    },
+    {
+      "key": "name_ar",
+      "lang": "ar",
+      "value": "الاسم (عربي)"
+    },
+    {
+      "key": "bio_en",
+      "lang": "ar",
+      "value": "السيرة (إنجليزي)"
+    },
+    {
+      "key": "bio_ar",
+      "lang": "ar",
+      "value": "السيرة (عربي)"
+    },
+    {
+      "key": "title_en",
+      "lang": "ar",
+      "value": "العنوان (إنجليزي)"
+    },
+    {
+      "key": "title_ar",
+      "lang": "ar",
+      "value": "العنوان (عربي)"
+    },
+    {
+      "key": "content_en",
+      "lang": "ar",
+      "value": "المحتوى (إنجليزي)"
+    },
+    {
+      "key": "content_ar",
+      "lang": "ar",
+      "value": "المحتوى (عربي)"
+    },
+    {
+      "key": "save",
+      "lang": "ar",
+      "value": "حفظ"
+    },
+    {
+      "key": "cancel",
+      "lang": "ar",
+      "value": "إلغاء"
+    },
+    {
+      "key": "confirm_delete",
+      "lang": "ar",
+      "value": "هل أنت متأكد من الحذف؟"
+    },
+    {
+      "key": "dashboard",
+      "lang": "ar",
+      "value": "لوحة القيادة"
+    },
+    {
+      "key": "total_players",
+      "lang": "ar",
+      "value": "إجمالي اللاعبين"
+    },
+    {
+      "key": "total_news",
+      "lang": "ar",
+      "value": "إجمالي الأخبار"
+    },
+    {
+      "key": "published_news",
+      "lang": "ar",
+      "value": "الأخبار المنشورة"
+    },
+    {
+      "key": "draft_news",
+      "lang": "ar",
+      "value": "المسودات"
+    },
+    {
+      "key": "username",
+      "lang": "ar",
+      "value": "اسم المستخدم"
+    },
+    {
+      "key": "password",
+      "lang": "ar",
+      "value": "كلمة المرور"
+    },
+    {
+      "key": "image",
+      "lang": "ar",
+      "value": "الصورة"
+    },
+    {
+      "key": "upload_image",
+      "lang": "ar",
+      "value": "رفع صورة"
+    },
+    {
+      "key": "select_player",
+      "lang": "ar",
+      "value": "اختر لاعب (اختياري)"
+    },
+    {
+      "key": "page",
+      "lang": "ar",
+      "value": "صفحة"
+    },
+    {
+      "key": "of",
+      "lang": "ar",
+      "value": "من"
+    },
+    {
+      "key": "previous",
+      "lang": "ar",
+      "value": "السابق"
+    },
+    {
+      "key": "next",
+      "lang": "ar",
+      "value": "التالي"
+    },
+    {
+      "key": "language",
+      "lang": "ar",
+      "value": "اللغة"
+    },
+    {
+      "key": "english",
+      "lang": "ar",
+      "value": "English"
+    },
+    {
+      "key": "arabic",
+      "lang": "ar",
+      "value": "العربية"
+    },
+    {
+      "key": "welcome",
+      "lang": "ar",
+      "value": "مرحباً بكم في مركز لاعبي الشطرنج"
+    },
+    {
+      "key": "welcome_desc",
+      "lang": "ar",
+      "value": "مصدرك لملفات لاعبي الشطرنج والأخبار من جميع أنحاء العالم"
+    },
+    {
+      "key": "featured_players",
+      "lang": "ar",
+      "value": "اللاعبون المميزون"
+    },
+    {
+      "key": "see_all_players",
+      "lang": "ar",
+      "value": "عرض جميع اللاعبين"
+    },
+    {
+      "key": "see_all_news",
+      "lang": "ar",
+      "value": "عرض جميع الأخبار"
+    },
+    {
+      "key": "featured_news",
+      "lang": "ar",
+      "value": "أخبار مميزة"
+    },
+    {
+      "key": "featured",
+      "lang": "ar",
+      "value": "مميز"
+    },
+    {
+      "key": "hero_badge",
+      "lang": "ar",
+      "value": "بيت الشطرنج"
+    },
+    {
+      "key": "countries",
+      "lang": "ar",
+      "value": "الدول"
+    },
+    {
+      "key": "player_of_month",
+      "lang": "ar",
+      "value": "لاعب الشهر"
+    },
+    {
+      "key": "player_of_month_sub",
+      "lang": "ar",
+      "value": "أفضل لاعب أداءً هذا الشهر"
+    },
+    {
+      "key": "tournament_winner",
+      "lang": "ar",
+      "value": "بطل العالم"
+    },
+    {
+      "key": "tournament_winner_sub",
+      "lang": "ar",
+      "value": "بطل العالم الحالي في الشطرنج"
+    },
+    {
+      "key": "site_strings",
+      "lang": "ar",
+      "value": "نصوص الموقع"
+    },
+    {
+      "key": "add_string",
+      "lang": "ar",
+      "value": "إضافة نص"
+    },
+    {
+      "key": "mark_featured",
+      "lang": "ar",
+      "value": "مميز على الصفحة الرئيسية"
+    },
+    {
+      "key": "featured_hint",
+      "lang": "ar",
+      "value": "يمكن تمييز خبر واحد فقط في كل مرة. اختيار هذا سيزيل التمييز عن أي خبر آخر."
+    },
+    {
+      "key": "homepage_highlights",
+      "lang": "ar",
+      "value": "أبرز الصفحة الرئيسية"
+    },
+    {
+      "key": "highlight_hint",
+      "lang": "ar",
+      "value": "يمكن للاعب واحد فقط أن يحمل كل تمييز. التبديل سيزيل التمييز السابق تلقائياً."
+    }
+  ]
+}

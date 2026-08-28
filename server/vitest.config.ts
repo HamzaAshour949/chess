@@ -4,10 +4,9 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['tests/**/*.test.ts'],
-    // Feature tests share one MySQL schema, so they must not run concurrently.
+    // Feature tests share one MongoDB database, so files must not run in
+    // parallel; each file resets the collections it touches.
     fileParallelism: false,
-    globalSetup: ['tests/global-setup.ts'],
-    setupFiles: ['tests/setup.ts'],
     testTimeout: 20_000,
     hookTimeout: 60_000,
   },

@@ -1,49 +1,43 @@
-# Laravel
-/vendor
-/node_modules
-/public/build
-/public/hot
-/public/storage
-/storage/*.key
-/storage/pail
-/bootstrap/cache/*.php
+# Dependencies
+node_modules/
+.npm/
+
+# Build output
+dist/
+build/
+server/dist/
+frontend/dist/
+*.tsbuildinfo
+
+# Environment — never commit real secrets
 .env
-.env.backup
-.env.production
 .env.*
 !.env.example
-.phpunit.result.cache
-/.phpunit.cache
-_ide_helper.php
-Homestead.json
-Homestead.yaml
-/auth.json
 
-# Local database files
-*.db
-*.sqlite
-*.sqlite3
+# Local MongoDB data directory (created by scripts/mongo-dev.sh)
+.mongo-data/
 
 # User uploads (keep the directory, ignore the contents)
-/public/uploads/*
-!/public/uploads/.gitkeep
+uploads/*
+!uploads/.gitkeep
 
 # Logs
 *.log
+logs/
+npm-debug.log*
 
-# OS
+# Test / tooling caches
+coverage/
+.vitest/
+.eslintcache
+
+# macOS
 .DS_Store
 .AppleDouble
 .LSOverride
-Thumbs.db
 
 # Editors / IDEs
-/.idea
-/.vscode
-/.zed
-/.nova
-/.cursor/
-/.codex
-.phpactor.json
+.vscode/
+.idea/
 *.swp
 *.swo

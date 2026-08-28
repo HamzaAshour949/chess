@@ -1,0 +1,46 @@
+{
+  "name": "chess-hub",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Bilingual (EN/AR) chess players & news CMS plus a real-time multiplayer chess platform.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=20.11"
+  },
+  "workspaces": [
+    "server",
+    "frontend"
+  ],
+  "scripts": {
+    "setup": "npm install && npm run db:start && npm run db:seed",
+    "db:start": "./scripts/mongo-dev.sh start",
+    "db:stop": "./scripts/mongo-dev.sh stop",
+    "db:status": "./scripts/mongo-dev.sh status",
+    "db:seed": "npm run db:seed -w @chess-hub/server",
+    "dev": "concurrently -n api,web -c cyan,magenta \"npm:dev:api\" \"npm:dev:web\"",
+    "dev:api": "npm run dev -w @chess-hub/server",
+    "dev:web": "npm run dev -w frontend",
+    "build": "npm run build -w frontend && npm run build -w @chess-hub/server",
+    "start": "npm run start -w @chess-hub/server",
+    "test": "npm run test -w @chess-hub/server",
+    "typecheck": "npm run typecheck -w @chess-hub/server",
+    "lint": "eslint .",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\""
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.18.0",
+    "concurrently": "^9.2.1",
+    "eslint": "^9.18.0",
+    "globals": "^15.14.0",
+    "prettier": "^3.4.2",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.21.0"
+  },
+  "allowScripts": {
+    "esbuild": true,
+    "@prisma/engines@7.10.0": true,
+    "prisma@7.10.0": true,
+    "fsevents@2.3.3": true
+  }
+}

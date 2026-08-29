@@ -5,7 +5,7 @@ import api from "../../api";
 
 export default function AdminGamesPage() {
   const { t } = useTranslation();
-  const [data, setData] = useState({ items: [], total: 0, page: 1, per_page: 20 });
+  const [data, setData] = useState({ games: [], total: 0, page: 1, per_page: 20 });
   const [filters, setFilters] = useState({ status: "all", search: "", page: 1 });
   const [busy, setBusy] = useState(null);
   const [error, setError] = useState("");
@@ -16,7 +16,10 @@ export default function AdminGamesPage() {
     if (filters.search) p.set("search", filters.search);
     p.set("page", filters.page);
     p.set("per_page", "20");
-    api.get(`/games/admin/games?${p.toString()}`).then((r) => setData(r.data || { items: [] }));
+    api
+      .get(`/games/admin/games?${p.toString()}`)
+      .then((r) => setData(r.data || { games: [] }))
+      .catch(() => setData({ games: [], total: 0 }));
   }, [filters]);
 
   useEffect(() => { load(); }, [load]);
@@ -71,7 +74,7 @@ export default function AdminGamesPage() {
             </tr>
           </thead>
           <tbody>
-            {(data.items || []).map((g) => (
+            {(data.games || []).map((g) => (
               <tr key={g.id} className="border-t border-white/5 hover:bg-white/5">
                 <td className="px-3 py-2 text-slate-400 font-mono text-xs">
                   <Link to={`/play/${g.id}`} className="text-amber-400 hover:underline">#{g.id}</Link>

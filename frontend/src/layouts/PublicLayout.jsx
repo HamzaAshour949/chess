@@ -4,17 +4,29 @@ import { useState, useEffect, useRef } from "react";
 import { useUserAuth } from "../context/UserAuthContext";
 import LanguageDropdown from "../components/LanguageDropdown";
 import api from "../api";
+import { getSocket } from "../realtime";
 
 function useUnreadDM(user) {
   const [n, setN] = useState(0);
   useEffect(() => {
     if (!user) { setN(0); return; }
     let alive = true;
+    // The API returns { unread }, not { count } — this badge never appeared.
     const tick = () => api.get("/messages/unread-count")
-      .then((r) => alive && setN(r.data?.count || 0)).catch(() => {});
+      .then((r) => alive && setN(r.data?.unread || 0)).catch(() => {});
     tick();
-    const i = setInterval(tick, 8000);
-    return () => { alive = false; clearInterval(i); };
+
+    // Bump immediately on delivery; the interval is only a slow safety net.
+    const socket = getSocket();
+    socket.on("dm:new", tick);
+    socket.on("connect", tick);
+    const i = setInterval(tick, 60000);
+    return () => {
+      alive = false;
+      clearInterval(i);
+      socket.off("dm:new", tick);
+      socket.off("connect", tick);
+    };
   }, [user]);
   return n;
 }

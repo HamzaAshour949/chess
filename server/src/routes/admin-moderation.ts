@@ -1,6 +1,15 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { DirectMessage, FINISHED_STATUSES, Game, GameMessage, User } from '../models/index.js';
+import {
+  DirectMessage,
+  FINISHED_STATUSES,
+  Game,
+  GameMessage,
+  LinkRequest,
+  News,
+  Player,
+  User,
+} from '../models/index.js';
 import { asyncHandler } from '../lib/async-handler.js';
 import { HttpError } from '../lib/http-error.js';
 import { objectId, pagination, parseBody, parseQuery } from '../lib/validate.js';
@@ -23,6 +32,53 @@ adminGamesRouter.use(requireAdmin);
 adminMessagesRouter.use(requireAdmin);
 
 const PLAYER_FIELDS = 'username displayName avatarUrl country onlineRating gamesPlayed isBanned';
+
+// ------------------------------------------------------------------- stats
+
+/**
+ * Dashboard counters.
+ *
+ * Counted in the database. The dashboard used to fetch *every* news article
+ * just to count how many were published, which grew linearly with the archive.
+ */
+adminGamesRouter.get(
+  '/stats',
+  asyncHandler(async (_req, res) => {
+    const [players, news, publishedNews, featured, users, bannedUsers, unverified, openGames, activeGames, finishedGames, pendingLinks, gameMessages, directMessages] =
+      await Promise.all([
+        Player.countDocuments(),
+        News.countDocuments(),
+        News.countDocuments({ published: true }),
+        News.countDocuments({ isFeatured: true }),
+        User.countDocuments(),
+        User.countDocuments({ isBanned: true }),
+        User.countDocuments({ isVerified: false }),
+        Game.countDocuments({ status: 'open' }),
+        Game.countDocuments({ status: 'active' }),
+        Game.countDocuments({ status: { $in: FINISHED_STATUSES } }),
+        LinkRequest.countDocuments({ status: 'pending' }),
+        GameMessage.countDocuments({ isDeleted: false }),
+        DirectMessage.countDocuments({ isDeleted: false }),
+      ]);
+
+    res.json({
+      players,
+      news,
+      published_news: publishedNews,
+      draft_news: news - publishedNews,
+      featured_news: featured,
+      users,
+      banned_users: bannedUsers,
+      unverified_users: unverified,
+      open_games: openGames,
+      active_games: activeGames,
+      finished_games: finishedGames,
+      pending_link_requests: pendingLinks,
+      game_messages: gameMessages,
+      direct_messages: directMessages,
+    });
+  }),
+);
 
 // ------------------------------------------------------------------- games
 

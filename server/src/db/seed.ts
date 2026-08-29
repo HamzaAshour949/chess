@@ -175,7 +175,7 @@ export async function seed({ fresh = false }: SeedOptions = {}): Promise<void> {
   const [whiteId, blackId] = demoIds;
   if (whiteId && blackId && (await Game.countDocuments()) === 0) {
     const moves = 'e2e4 e7e5 g1f3 b8c6 f1c4 f8c5 b2b4 c5b4 c2c3 b4a5 d2d4 e5d4 e1g1 d4c3';
-    const { replayGame } = await import('../lib/chess.js');
+    const { buildPgn, replayGame } = await import('../lib/chess.js');
     const board = replayGame(moves);
 
     await Game.create({
@@ -188,7 +188,7 @@ export async function seed({ fresh = false }: SeedOptions = {}): Promise<void> {
       termination: 'resignation',
       moves,
       fen: board.fen(),
-      pgn: board.pgn(),
+      pgn: buildPgn(board.history()),
       moveCount: moves.split(' ').length,
       version: 1,
       timeControlSeconds: 600,

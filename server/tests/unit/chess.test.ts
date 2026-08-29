@@ -3,6 +3,7 @@ import { Chess } from 'chess.js';
 import {
   IllegalMoveError,
   START_FEN,
+  buildPgn,
   describeOutcome,
   legalMovesUci,
   playMove,
@@ -76,7 +77,10 @@ describe('playMove', () => {
     expect(state.san).toBe('Nf3');
     expect(state.turn).toBe('black');
     expect(state.fen).toBe('rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2');
-    expect(state.pgn).toContain('1. e4 e5 2. Nf3');
+    expect(state.pgn).toBe('1. e4 e5 2. Nf3');
+    // Movetext only: chess.js's own pgn() would prepend a seven-tag header
+    // block, which the SPA would then render as fake moves.
+    expect(state.pgn).not.toContain('[Event');
     expect(state.outcome).toBeNull();
   });
 
@@ -106,6 +110,15 @@ describe('playMove', () => {
   it('defaults an unspecified promotion to a queen', () => {
     const state = playMove('e2e4 d7d5 e4d5 c7c6 d5c6 g8f6 c6b7 f6g8', 'b7a8');
     expect(state.uci).toBe('b7a8q');
+  });
+});
+
+describe('buildPgn', () => {
+  it('numbers moves and emits no header block', () => {
+    expect(buildPgn([])).toBe('');
+    expect(buildPgn(['e4'])).toBe('1. e4');
+    expect(buildPgn(['e4', 'e5', 'Nf3'])).toBe('1. e4 e5 2. Nf3');
+    expect(buildPgn(['e4', 'e5'])).not.toContain('[');
   });
 });
 

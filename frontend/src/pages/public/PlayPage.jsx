@@ -1,7 +1,8 @@
 import { useEffect, useState, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import api from "../../api";
+import api, { apiError } from "../../api";
+import { useLiveLobby } from "../../hooks/useLive";
 import { useUserAuth } from "../../context/UserAuthContext";
 
 const TIME_CONTROLS = [
@@ -100,12 +101,16 @@ export default function PlayPage() {
     );
   }, []);
 
-  useEffect(() => {
+  const refresh = useCallback(() => {
     loadLobby();
     loadActive();
-    const id = setInterval(() => { loadLobby(); loadActive(); }, 4000);
-    return () => clearInterval(id);
   }, [loadLobby, loadActive]);
+
+  useEffect(() => { refresh(); }, [refresh]);
+
+  // Challenges appear and disappear as they are posted and accepted; the hook
+  // keeps a slow poll as a fallback while the socket is down.
+  useLiveLobby(refresh);
 
   const create = async (e) => {
     e.preventDefault();
@@ -121,7 +126,7 @@ export default function PlayPage() {
       });
       setMyOpen(r.data);
       loadLobby();
-    } catch (err) { setError(err.response?.data?.error || "Failed"); }
+    } catch (err) { setError(apiError(err)); }
     finally { setBusy(false); }
   };
 
@@ -129,12 +134,12 @@ export default function PlayPage() {
     try {
       const r = await api.post(`/games/${id}/accept`);
       navigate(`/play/${r.data.id}`);
-    } catch (err) { setError(err.response?.data?.error || "Failed"); }
+    } catch (err) { setError(apiError(err)); }
   };
 
   const cancel = async (id) => {
     try { await api.post(`/games/${id}/cancel`); setMyOpen(null); loadLobby(); }
-    catch (err) { setError(err.response?.data?.error || "Failed"); }
+    catch (err) { setError(apiError(err)); }
   };
 
   return (

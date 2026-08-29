@@ -154,7 +154,7 @@ export function playMove(storedMoves: string | null | undefined, uci: string): M
   return {
     moves: history.join(' '),
     fen: chess.fen(),
-    pgn: chess.pgn(),
+    pgn: buildPgn(chess.history()),
     moveCount: history.length,
     san: move.san,
     uci: toUci(move),
@@ -162,6 +162,22 @@ export function playMove(storedMoves: string | null | undefined, uci: string): M
     turn: chess.turn() === 'w' ? 'white' : 'black',
     isCheck: chess.isCheck(),
   };
+}
+
+/**
+ * Movetext for a finished sequence of SAN moves: "1. e4 e5 2. Nf3 Nc6".
+ *
+ * Built from the move history rather than chess.js's `pgn()`, which always
+ * emits a seven-tag PGN header block. The API contract is movetext only, and
+ * the SPA renders the move list straight from this string.
+ */
+export function buildPgn(sanMoves: string[]): string {
+  const parts: string[] = [];
+  sanMoves.forEach((san, index) => {
+    if (index % 2 === 0) parts.push(`${index / 2 + 1}.`);
+    parts.push(san);
+  });
+  return parts.join(' ');
 }
 
 /** Canonical UCI for a chess.js move, including the promotion suffix. */

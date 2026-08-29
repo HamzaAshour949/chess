@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import api from "../../api";
+import { useLiveLobby } from "../../hooks/useLive";
 
 function tcLabel(sec, t) {
   if (!sec || sec === 0) return t("tc_unlimited");
@@ -18,14 +19,16 @@ export default function WatchPage() {
     const params = new URLSearchParams();
     if (filters.min_rating) params.set("min_rating", filters.min_rating);
     if (filters.max_rating) params.set("max_rating", filters.max_rating);
-    api.get(`/games/live?${params.toString()}`).then((r) => setGames(r.data || []));
+    api
+      .get(`/games/live?${params.toString()}`)
+      .then((r) => setGames(r.data || []))
+      .catch(() => {});
   }, [filters]);
 
-  useEffect(() => {
-    load();
-    const i = setInterval(load, 4000);
-    return () => clearInterval(i);
-  }, [load]);
+  useEffect(() => { load(); }, [load]);
+
+  // A game entering or leaving the live list is a lobby-level change.
+  useLiveLobby(load);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">

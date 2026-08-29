@@ -26,7 +26,8 @@
     "test": "npm run test -w @chess-hub/server",
     "typecheck": "npm run typecheck -w @chess-hub/server",
     "lint": "eslint .",
-    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\""
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "db:repair": "npm run db:repair -w @chess-hub/server"
   },
   "devDependencies": {
     "@eslint/js": "^9.18.0",

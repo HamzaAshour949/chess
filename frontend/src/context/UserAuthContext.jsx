@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import api from "../api";
+import { refreshSocketAuth } from "../realtime";
 
 const UserAuthContext = createContext();
 
@@ -29,6 +30,9 @@ export function UserAuthProvider({ children }) {
     const res = await api.post("/users/auth/login", { identifier, password, lang });
     localStorage.setItem("user_token", res.data.token);
     setUser(res.data.user);
+    // The socket authenticates at handshake time, so it has to reconnect for
+    // the new identity to reach its own notification channel.
+    refreshSocketAuth();
     return res.data.user;
   };
 
@@ -41,6 +45,7 @@ export function UserAuthProvider({ children }) {
     const res = await api.post("/users/auth/verify-otp", { email, code });
     localStorage.setItem("user_token", res.data.token);
     setUser(res.data.user);
+    refreshSocketAuth();
     return res.data.user;
   };
 
@@ -57,6 +62,7 @@ export function UserAuthProvider({ children }) {
   const logout = () => {
     localStorage.removeItem("user_token");
     setUser(null);
+    refreshSocketAuth();
   };
 
   return (

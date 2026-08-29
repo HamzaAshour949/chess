@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import api from "../../api";
+import api, { apiError } from "../../api";
+import { getSocket } from "../../realtime";
 import { useUserAuth } from "../../context/UserAuthContext";
 
 export default function MessagesPage() {
@@ -19,29 +20,44 @@ export default function MessagesPage() {
   const scrollRef = useRef(null);
 
   const loadThreads = useCallback(() => {
-    api.get("/messages/threads").then((r) => setThreads(r.data || []));
+    api.get("/messages/threads").then((r) => setThreads(r.data || [])).catch(() => {});
   }, []);
 
   const loadBlocks = useCallback(() => {
-    api.get("/messages/blocks").then((r) => setBlocks(r.data || []));
+    api.get("/messages/blocks").then((r) => setBlocks(r.data || [])).catch(() => {});
   }, []);
 
   const loadConvo = useCallback(() => {
     if (!userId) return;
     api.get(`/messages/with/${userId}`).then((r) => {
       setMessages(r.data.messages || []);
-      setPartner(r.data.partner || null);
+      setPartner(r.data.other_user || null);
       loadThreads();
     }).catch(() => {});
   }, [userId, loadThreads]);
 
   useEffect(() => { loadThreads(); loadBlocks(); }, [loadThreads, loadBlocks]);
+  useEffect(() => { loadConvo(); }, [loadConvo]);
+
+  // Incoming messages are pushed to the recipient's own channel, so the
+  // thread updates on arrival rather than on a 3-second timer.
   useEffect(() => {
-    loadConvo();
-    if (!userId) return;
-    const i = setInterval(loadConvo, 3000);
-    return () => clearInterval(i);
-  }, [loadConvo, userId]);
+    const socket = getSocket();
+    const onMessage = (message) => {
+      loadThreads();
+      if (userId && (message.sender_id === userId || message.recipient_id === userId)) {
+        setMessages((current) =>
+          current.some((m) => m.id === message.id) ? current : [...current, message]
+        );
+      }
+    };
+    socket.on("dm:new", onMessage);
+    socket.on("connect", loadConvo);
+    return () => {
+      socket.off("dm:new", onMessage);
+      socket.off("connect", loadConvo);
+    };
+  }, [userId, loadConvo, loadThreads]);
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -51,22 +67,24 @@ export default function MessagesPage() {
     e.preventDefault();
     if (!text.trim() || !userId) return;
     try {
-      await api.post(`/messages/with/${userId}`, { content: text });
+      const res = await api.post(`/messages/with/${userId}`, { content: text });
       setText("");
-      loadConvo();
+      // Show our own message straight away; the sender gets no push for it.
+      setMessages((current) => [...current, res.data]);
+      loadThreads();
     } catch (err) {
-      setError(err.response?.data?.error || "Failed");
+      setError(apiError(err));
       setTimeout(() => setError(""), 2500);
     }
   };
 
   const block = async (id) => {
     try { await api.post(`/messages/blocks/${id}`); loadBlocks(); }
-    catch (err) { setError(err.response?.data?.error || "Failed"); }
+    catch (err) { setError(apiError(err)); }
   };
   const unblock = async (id) => {
     try { await api.delete(`/messages/blocks/${id}`); loadBlocks(); }
-    catch (err) { setError(err.response?.data?.error || "Failed"); }
+    catch (err) { setError(apiError(err)); }
   };
 
   const isBlocked = partner ? blocks.some((b) => b.id === partner.id) : false;

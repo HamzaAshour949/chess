@@ -6,20 +6,23 @@ import api from "../../api";
 export default function AdminMessagesPage() {
   const { t } = useTranslation();
   const [tab, setTab] = useState("game");
-  const [data, setData] = useState({ items: [], total: 0, page: 1, per_page: 30 });
+  const [data, setData] = useState({ messages: [], total: 0, page: 1, per_page: 30 });
   const [filters, setFilters] = useState({ search: "", show_deleted: false, page: 1 });
   const [error, setError] = useState("");
 
   const load = useCallback(() => {
     const p = new URLSearchParams();
     if (filters.search) p.set("search", filters.search);
-    if (filters.show_deleted) p.set("show_deleted", "1");
+    p.set("only", filters.show_deleted ? "all" : "active");
     p.set("page", filters.page);
     p.set("per_page", "30");
     const url = tab === "game"
       ? `/games/admin/messages?${p.toString()}`
       : `/messages/admin/dms?${p.toString()}`;
-    api.get(url).then((r) => setData(r.data || { items: [] }));
+    api
+      .get(url)
+      .then((r) => setData(r.data || { messages: [] }))
+      .catch(() => setData({ messages: [], total: 0 }));
   }, [tab, filters]);
 
   useEffect(() => { load(); }, [load]);
@@ -87,7 +90,7 @@ export default function AdminMessagesPage() {
             </tr>
           </thead>
           <tbody>
-            {(data.items || []).map((m) => (
+            {(data.messages || []).map((m) => (
               <tr key={m.id} className="border-t border-white/5 hover:bg-white/5">
                 <td className="px-3 py-2 text-slate-500 font-mono text-xs whitespace-nowrap">
                   {m.created_at ? new Date(m.created_at + "Z").toLocaleString() : "—"}

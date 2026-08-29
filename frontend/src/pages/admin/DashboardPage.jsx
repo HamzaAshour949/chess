@@ -5,44 +5,37 @@ import api from "../../api";
 
 export default function DashboardPage() {
   const { t } = useTranslation();
-  const [stats, setStats] = useState({ players: 0, news: 0, published: 0, drafts: 0 });
+  const [stats, setStats] = useState({
+    players: 0,
+    news: 0,
+    published_news: 0,
+    draft_news: 0,
+    users: 0,
+    active_games: 0,
+    pending_link_requests: 0,
+  });
   const [recentNews, setRecentNews] = useState([]);
 
   useEffect(() => {
-    Promise.all([
-      api.get("/players?per_page=1"),
-      api.get("/news/admin?per_page=5"),
-    ]).then(([pRes, nRes]) => {
-      const totalNews = nRes.data.total;
-      const published = nRes.data.news.filter((n) => n.published).length;
-      setRecentNews(nRes.data.news);
-      // get full count
-      if (totalNews > 5) {
-        api.get(`/news/admin?per_page=${totalNews}`).then((allRes) => {
-          const pub = allRes.data.news.filter((n) => n.published).length;
-          setStats({
-            players: pRes.data.total,
-            news: totalNews,
-            published: pub,
-            drafts: totalNews - pub,
-          });
-        });
-      } else {
-        setStats({
-          players: pRes.data.total,
-          news: totalNews,
-          published,
-          drafts: totalNews - published,
-        });
-      }
-    });
+    // One counted query per statistic, server-side. This page used to fetch
+    // every news article just to count the published ones.
+    api
+      .get("/games/admin/stats")
+      .then((r) => setStats(r.data))
+      .catch(() => {});
+    api
+      .get("/news/admin?per_page=5")
+      .then((r) => setRecentNews(r.data.news || []))
+      .catch(() => {});
   }, []);
 
   const cards = [
     { label: t("total_players"), value: stats.players, color: "bg-blue-500", icon: "♟" },
     { label: t("total_news"), value: stats.news, color: "bg-amber-500", icon: "📰" },
-    { label: t("published_news"), value: stats.published, color: "bg-green-500", icon: "✓" },
-    { label: t("draft_news"), value: stats.drafts, color: "bg-gray-500", icon: "✎" },
+    { label: t("published_news"), value: stats.published_news, color: "bg-green-500", icon: "✓" },
+    { label: t("draft_news"), value: stats.draft_news, color: "bg-gray-500", icon: "✎" },
+    { label: t("registered_users", "Players"), value: stats.users, color: "bg-sky-500", icon: "👤" },
+    { label: t("active_games", "Live games"), value: stats.active_games, color: "bg-rose-500", icon: "⚔" },
   ];
 
   const quickActions = [

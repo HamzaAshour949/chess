@@ -1,291 +1,381 @@
-# CLAUDE.md — Chess Platform Project Context
+# CLAUDE.md — Chess Hub Project Context
 
-> **Living Document Rule:** This file must be updated whenever there is a structural change to the project — new models, new API routes, new features, changed architecture, or any modification that would affect how another developer (or AI) understands the codebase. Treat this as the single source of truth for project context.
+> **Living Document Rule:** Update this file whenever there is a structural
+> change — new models, new API routes, new features, changed architecture, or
+> anything that would alter how another developer (or AI) understands the
+> codebase. This is the single source of truth for project context.
 
 ## Project Overview
-A bilingual (English / Arabic) chess players & news CMS **plus** a multiplayer online chess platform built with **Flask** (backend API) and **React + Vite** (frontend SPA). Registered users can play live ranked games against each other; admins curate the players/news catalogue. The frontend is built to static files and served by Flask in production.
+
+A bilingual (English / Arabic) chess players & news CMS **plus** a real-time
+multiplayer chess platform, built as an **Express + TypeScript** API with a
+**React + Vite** SPA on **MongoDB**. Registered players play live ranked games
+with server-validated moves and server-authoritative clocks; admins curate the
+catalogue and moderate. In production one Node process serves the API, the
+WebSocket and the built SPA on a single port.
 
 ---
 
 ## Tech Stack
 
-| Layer     | Technology                   |
-|-----------|------------------------------|
-| Backend   | Python 3, Flask 3.1          |
-| Database  | MySQL 8+ via PyMySQL         |
-| ORM       | Flask-SQLAlchemy + Flask-Migrate (Alembic) |
-| Auth      | Flask-JWT-Extended (JWT bearer tokens, dual-role) |
-| Chess     | python-chess 1.11 (server-authoritative move validation) |
-| Email     | Brevo (Sendinblue) transactional API |
-| Security  | Flask-Limiter (rate limiting), Flask-Talisman (security headers) |
-| Frontend  | React 19, Vite, React Router |
-| Chess UI  | react-chessboard, chess.js (client-side preview only) |
-| Carousel  | Swiper                       |
-| Animation | framer-motion                |
-| i18n      | react-i18next (en/ar locales) |
-| Styling   | Tailwind CSS 4, custom dark design system |
+| Layer      | Technology                                                  |
+|------------|-------------------------------------------------------------|
+| Runtime    | Node.js 20.11+ (ESM), TypeScript 5.9 strict, `NodeNext`      |
+| API        | Express 5                                                    |
+| Real-time  | Socket.IO 4 (rooms per game, per lobby, per user)            |
+| Database   | MongoDB 7+ via Mongoose 9                                    |
+| Auth       | JWT bearer tokens; bcrypt password and OTP hashing           |
+| Validation | Zod 4 at every request boundary                              |
+| Chess      | `chess.js` server-side, verified in-repo with perft          |
+| Images     | `sharp` — decode and re-encode before storage                |
+| Email      | Brevo transactional API; console fallback in development     |
+| Logging    | Pino (`pino-http`), pretty in dev, JSON in production        |
+| Frontend   | React 19, Vite 8 (Rolldown), React Router 7                  |
+| Chess UI   | `react-chessboard` 5 (options API)                           |
+| i18n       | `react-i18next`, with admin-editable overrides from the API  |
+| Styling    | Tailwind CSS 4, custom dark design system, RTL support       |
+| Tests      | Vitest + Supertest (160 tests)                               |
+| Tooling    | ESLint flat config, Prettier, npm workspaces                 |
 
 ---
 
 ## Directory Structure
 
 ```
-├── config.py           # App configuration (reads .env)
-├── run.py              # Entry point — builds frontend, starts Flask
-├── seed.py             # DB seeding script (admin + sample data)
-├── start.sh            # Quick-start script (activates venv, runs app)
-├── .env                # Local env vars (NOT committed — see .env.example)
-├── .env.example        # Template for required env vars
-├── requirements.txt    # Python dependencies
+├── package.json                 npm workspaces root; all scripts live here
+├── tsconfig.base.json           Shared strict TS settings
+├── eslint.config.js             Flat config for both workspaces
+├── .env / .env.example          Single env file at the repo root
+├── scripts/mongo-dev.sh         Local MongoDB single-node replica set
 │
-├── app/
-│   ├── __init__.py     # Flask app factory (create_app)
-│   ├── models.py       # SQLAlchemy models: Admin, Player, News, SiteString, User, LinkRequest, Game
-│   ├── services/
-│   │   ├── email.py    # Brevo wrapper + bilingual OTP email templates
-│   │   ├── otp.py      # OTP generation, expiry, resend cooldown
-│   │   └── elo.py      # K-factor + Elo rating calculation
-│   └── routes/
-│       ├── auth.py     # Admin auth: POST /api/auth/login, /setup, GET /me
-│       ├── user_auth.py    # User auth: register, OTP verify/resend, login, /me, PATCH /me
-│       ├── players.py  # CRUD /api/players (+ /homepage)
-│       ├── news.py     # CRUD /api/news
-│       ├── upload.py   # POST /api/upload/image
-│       ├── site_strings.py  # /api/strings (i18n overrides)
-│       ├── games.py    # Online chess: lobby, challenges, moves, draws, leaderboard
-│       └── links.py    # Player-profile linking (user requests + admin approval)
-│
-├── frontend/
+├── server/
 │   ├── src/
-│   │   ├── App.jsx, main.jsx
-│   │   ├── api.js           # Axios instance → /api/*
-│   │   ├── components/      # Reusable UI components
-│   │   ├── context/         # AuthContext, LanguageContext
-│   │   ├── layouts/         # AdminLayout, PublicLayout
-│   │   ├── locales/         # en.json, ar.json
-│   │   └── pages/           # admin/ and public/ page components
-│   ├── index.html
-│   ├── vite.config.js
-│   └── package.json
+│   │   ├── index.ts             HTTP server + Socket.IO + graceful shutdown
+│   │   ├── app.ts               Express app, helmet/CORS, static SPA, errors
+│   │   ├── config/env.ts        Zod-validated env; throws at boot if invalid
+│   │   ├── db/
+│   │   │   ├── mongoose.ts      Connection; `supportsTransactions()` probe
+│   │   │   ├── sync-indexes.ts  Explicit index creation (autoIndex is off)
+│   │   │   ├── seed.ts          Catalogue + demo accounts (idempotent)
+│   │   │   ├── repair-games.ts  Rebuild fen/pgn/moveCount from move lists
+│   │   │   └── seed-data/       content.json — the migrated catalogue
+│   │   ├── lib/
+│   │   │   ├── chess.ts         replay/playMove/outcome/perft helpers
+│   │   │   ├── elo.ts           K-factor and rating maths
+│   │   │   ├── otp.ts           Generation, hashing, expiry, cooldown
+│   │   │   ├── email.ts         Brevo wrapper + bilingual OTP template
+│   │   │   ├── jwt.ts           Sign/verify with role as claim AND audience
+│   │   │   ├── sanitize.ts      Chat cleaning, trimming, regex escaping
+│   │   │   ├── serializers.ts   Every API response shape, explicitly
+│   │   │   ├── validate.ts      Zod request parsing helpers
+│   │   │   ├── http-error.ts    HttpError with status/code/details
+│   │   │   └── async-handler.ts Async route wrapper
+│   │   ├── middleware/
+│   │   │   ├── auth.ts          authenticate, requireUser/Admin, optionalUser
+│   │   │   ├── rate-limit.ts    Named limiters per endpoint class
+│   │   │   └── error-handler.ts Single place errors become JSON
+│   │   ├── models/              Ten Mongoose models + index.ts barrel
+│   │   ├── realtime/
+│   │   │   ├── io.ts            Socket.IO server, rooms, handshake auth
+│   │   │   └── publish.ts       Seam so routes never import the socket server
+│   │   ├── routes/              One module per area + index.ts mounting
+│   │   └── services/game-service.ts  Clocks, results, ratings
+│   └── tests/{unit,feature,helpers}/
 │
-└── uploads/            # User-uploaded images (gitignored except .gitkeep)
+├── frontend/src/
+│   ├── api.js                   Axios; picks the correct identity's token
+│   ├── realtime.js              Shared Socket.IO connection
+│   ├── hooks/useLive.js         useLiveGame/useLiveChat/useLiveLobby/clocks
+│   ├── context/                 AuthContext, UserAuthContext, LanguageContext
+│   ├── layouts/                 PublicLayout, AdminLayout
+│   ├── locales/                 en.json / ar.json — must stay key-for-key equal
+│   └── pages/{public,admin}/    Admin pages are lazy-loaded
+│
+└── uploads/                     Uploaded images (git-ignored)
 ```
 
 ---
 
-## Environment Variables (.env)
+## Environment Variables
 
-| Variable               | Purpose                                      | Example                                          |
-|------------------------|----------------------------------------------|--------------------------------------------------|
-| `DATABASE_URL`         | MySQL connection string                      | `mysql+pymysql://root@localhost:3306/chess_db`   |
-| `SECRET_KEY`           | Flask secret key                             | random string                                    |
-| `JWT_SECRET_KEY`       | JWT signing key                              | random string                                    |
-| `RATELIMIT_DEFAULT`    | Global rate limit (optional)                 | `200 per minute`                                 |
-| `RATELIMIT_STORAGE_URI`| Rate limit backend (optional)                | `memory://` or `redis://localhost:6379`           |
-| `BREVO_API_KEY`        | Brevo transactional email API key            | xkeysib-… (leave empty in dev to console-print)   |
-| `BREVO_FROM_EMAIL`     | Sender email for OTP messages                | `no-reply@chesshub.local`                         |
-| `BREVO_FROM_NAME`      | Sender display name                          | `Chess Hub`                                       |
-| `FLASK_ENV`            | Set to `production` to enable secure cookies | `production`                                     |
+One `.env` at the repo root, validated by `server/src/config/env.ts`. A missing
+or malformed value stops the process at boot with the offending field named.
+
+| Variable | Purpose |
+|---|---|
+| `NODE_ENV` | `development` \| `test` \| `production` |
+| `PORT` | HTTP + WebSocket port (default `8080`) |
+| `APP_URL` | Public origin, used in emails |
+| `MONGODB_URI` | Connection string; include `?replicaSet=rs0` locally |
+| `JWT_SECRET` | **Required**, minimum 32 characters |
+| `JWT_EXPIRES_IN` | Token lifetime (default `7d`) |
+| `BCRYPT_ROUNDS` | 10–15 (default 12) |
+| `CORS_ORIGINS` | Comma-separated allow-list; empty = same-origin only |
+| `RATE_LIMIT_WINDOW_MS` / `RATE_LIMIT_MAX` | Global limiter |
+| `TRUST_PROXY` | `1` only behind a real reverse proxy |
+| `UPLOAD_DIR` / `UPLOAD_MAX_BYTES` | Image storage |
+| `DEFAULT_RATING` / `PROVISIONAL_GAMES` | Elo configuration |
+| `BREVO_API_KEY` / `BREVO_FROM_EMAIL` / `BREVO_FROM_NAME` | Email |
+| `LOG_LEVEL` | Pino level |
 
 ---
 
 ## How to Run Locally
 
 ```bash
-# 1. Start MySQL (macOS)
-brew services start mysql
-
-# 2. Create the database
-mysql -u root -e "CREATE DATABASE IF NOT EXISTS chess_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
-
-# 3. Set up Python env
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-
-# 4. Configure .env (copy .env.example and adjust)
-cp .env.example .env
-
-# 5. Seed the database
-python3 seed.py
-
-# 6. Run the app (builds frontend + starts Flask on :8080)
-python3 run.py
+npm install
+cp .env.example .env      # then set JWT_SECRET
+npm run db:start          # mongod as a single-node replica set in .mongo-data/
+npm run db:seed
+npm run dev               # SPA on :3000 (proxied), API + WS on :8080
 ```
 
-Or simply: `./start.sh` (requires venv to already be set up).
-
----
-
-## Security Measures in Place
-
-1. **Rate Limiting** (Flask-Limiter)
-   - Global: 200 requests/min per IP
-   - Login: 10 requests/min (brute-force protection)
-   - Setup: 5 requests/hour
-   - Upload: 30 requests/min
-2. **Security Headers** (Flask-Talisman)
-   - Strict-Transport-Security (HSTS)
-   - X-Content-Type-Options: nosniff
-   - X-Frame-Options: DENY
-   - Content-Security-Policy (customisable)
-3. **JWT Authentication** — all admin routes require valid bearer tokens
-4. **File Upload Validation** — whitelist of allowed extensions, 5 MB max size, UUID filenames
-5. **SQL Injection Protection** — all queries use SQLAlchemy ORM (parameterised)
-6. **CORS** — configured on `/api/*` routes only
-7. **Secure Cookies** — HTTPOnly, SameSite=Lax; Secure flag in production
-8. **MySQL Connection Pooling** — pool_pre_ping and pool_recycle to handle stale connections
-
----
-
-## Guardrails & Safety Rules
-
-> **Follow these rules strictly when modifying the project.**
-
-### DO NOT
-- **Never** commit `.env` files or secrets to git
-- **Never** use raw SQL queries — always use SQLAlchemy ORM
-- **Never** disable rate limiting or security headers without explicit approval
-- **Never** allow `*` CORS origins in production — restrict to your actual domain
-- **Never** store passwords in plain text — always use `werkzeug.security` hashing
-- **Never** trust user input — validate and sanitise at the API boundary
-- **Never** serve user-uploaded files without filename sanitisation (already using `secure_filename` + UUID)
-- **Never** expose stack traces or internal errors to the client in production
-
-### DO
-- **Always** use Flask-Migrate (`flask db migrate` / `flask db upgrade`) for schema changes
-- **Always** add rate limits to new endpoints that accept user input
-- **Always** require `@jwt_required()` on admin-only endpoints
-- **Always** validate uploaded file types against the whitelist
-- **Always** use parameterised queries via ORM
-- **Always** test both English and Arabic content when modifying i18n
-- **Always** run `python3 seed.py` after fresh database creation
-- **Always** build the frontend (`npm run build` in /frontend) before deploying
-- **Always** update `CLAUDE.md` when adding/removing models, API routes, features, or making architectural changes
-
-### Database Rules
-- The database is **MySQL 8+** with `utf8mb4` charset
-- Use `db.Text` for long content fields (not `db.String`)
-- Add `mysql_charset` and `mysql_collate` table args for tables with Arabic text
-- When adding migrations: `flask db migrate -m "description"` then `flask db upgrade`
-
-### API Design Standards
-- All API routes are under `/api/`
-- Use proper HTTP status codes (200, 201, 400, 401, 404)
-- Return JSON with `error` key for errors
-- Support `?lang=en|ar` query param for bilingual content
-- Paginate list endpoints with `?page=` and `?per_page=`
+Production-shaped run: `npm run build && npm start` → everything on `:8080`.
 
 ---
 
 ## Models Quick Reference
 
-| Model       | Key Fields                                      |
-|-------------|--------------------------------------------------|
-| Admin       | username, email, password_hash                   |
-| Player      | name_en, name_ar, bio_en, bio_ar, country, rating, title, image_url, date_of_birth, **is_player_of_month**, **is_tournament_winner** |
-| News        | title_en, title_ar, content_en, content_ar, region, image_url, published, **is_featured**, player_id |
-| SiteString  | key, lang, value (unique on key+lang)            |
-| User        | username, email, password_hash, display_name, avatar_url, country, **is_verified**, otp_code, otp_expires_at, otp_attempts, **online_rating** (default 1200), games_played/won/lost/drawn, **linked_player_id** (FK→players, admin-only mutation), **is_banned**, **banned_at**, **ban_reason**, **chat_muted**, **notif_email**, **notif_dm**, **notif_game_chat**, **notif_sound** |
-| LinkRequest | user_id, player_id, message, status (pending/approved/rejected), admin_note, reviewed_by_admin_id, reviewed_at |
-| Game        | white_user_id, black_user_id, creator_user_id, creator_color, status (open/active/white_wins/black_wins/draw/aborted), result, **fen** (server-authoritative), pgn, move_count, time_control_seconds, **increment_seconds** (Fischer), white/black_time_remaining, rated, white/black_rating_before/after, draw_offer_by, started_at, last_move_at, ended_at, **min_opp_rating**, **max_opp_rating**, **chat_disabled**, **voided_by_admin_id**, **void_reason** |
-| GameMessage | game_id, user_id, content (≤500 chars, URLs stripped), is_deleted, deleted_by_admin_id |
-| DirectMessage | sender_id, recipient_id, content (≤2000), is_read, is_deleted, deleted_by_admin_id |
-| BlockedUser | blocker_id, blocked_id (unique pair) |
+Mongo documents use **camelCase**; the API wire format is **snake_case**, mapped
+explicitly in `lib/serializers.ts`.
+
+| Model | Key fields |
+|---|---|
+| `Admin` | username, email, passwordHash *(`select: false`)* |
+| `Player` | nameEn/Ar, bioEn/Ar, country, rating, title, imageUrl, dateOfBirth, **isPlayerOfMonth**, **isTournamentWinner** |
+| `News` | titleEn/Ar, contentEn/Ar, region (`en`\|`ar`\|`both`), imageUrl, published, **isFeatured**, publishedAt, playerId |
+| `SiteString` | key, lang, value — unique on (key, lang) |
+| `User` | username, email, passwordHash, displayName, avatarUrl, country, **isVerified**, otpCodeHash *(bcrypt)*, otpExpiresAt, otpAttempts, otpLastSentAt, **onlineRating** (1200), gamesPlayed/Won/Lost/Drawn, **linkedPlayerId** *(admin-only, unique)*, isBanned, bannedAt, banReason, chatMuted, notifEmail/Dm/GameChat/Sound, lastLoginAt |
+| `LinkRequest` | userId, playerId, message, status, adminNote, reviewedByAdminId, reviewedAt |
+| `Game` | white/black/creatorUserId, creatorColor, status, result, **termination**, **moves** *(UCI — source of truth)*, fen, pgn, moveCount, **version**, timeControlSeconds, incrementSeconds, **whiteTimeMs/blackTimeMs**, rated, min/maxOppRating, white/blackRatingBefore/After, **ratingsApplied**, drawOfferBy, chatDisabled, voidedAt, voidedByAdminId, voidReason, startedAt, lastMoveAt, endedAt |
+| `GameMessage` | gameId, userId, content (≤500, URLs stripped), isDeleted, deletedByAdminId |
+| `DirectMessage` | senderId, recipientId, content (≤2000), readAt, isDeleted, deletedByAdminId, **pairKey** *(sorted id pair)* |
+| `BlockedUser` | blockerId, blockedId — unique pair |
+
+### Indexes that are constraints, not optimisations
+
+`autoIndex` is **off**; `npm run db:indexes` creates them. The application
+depends on these three:
+
+- `users.linkedPlayerId` — unique, **partial** on `{ $type: 'objectId' }`.
+  Partial, not sparse: every unlinked account stores an explicit `null`, and a
+  sparse index only skips *missing* fields, so it would reject the second
+  unlinked account.
+- `link_requests.userId` — unique, partial on `{ status: 'pending' }`.
+- `games.creatorUserId` — unique, partial on `{ status: 'open' }`.
 
 ---
 
 ## Authentication & Authorization (CRITICAL)
 
-The platform has **two distinct identity types** sharing one JWT system:
+Two identities in **separate collections**. An admin is not a user with a flag;
+no route promotes one to the other.
 
-| Identity | Login endpoint              | JWT claim     | localStorage key | Backend guard                              |
-|----------|------------------------------|---------------|-------------------|---------------------------------------------|
-| Admin    | `POST /api/auth/login`       | (no `role`)   | `token`           | `@jwt_required()` + reject `role=="user"`    |
-| User     | `POST /api/users/auth/login` | `role="user"` | `user_token`      | `@user_required` (must be verified)          |
+| Identity | Login | Token role | `localStorage` | Guard |
+|---|---|---|---|---|
+| Admin | `POST /api/auth/login` | `admin` | `token` | `requireAdmin` |
+| Player | `POST /api/users/auth/login` | `user` | `user_token` | `requireUser` |
 
-- Admin tokens carry **no role claim** (legacy compatibility); user tokens carry `additional_claims={"role": "user"}`.
-- `app/routes/user_auth.py::current_user()` returns `None` if `role != "user"` — prevents admin tokens from acting as users.
-- `_admin_required` (in `links.py`, etc.) rejects requests where `get_jwt().get("role") == "user"`.
-- Frontend `api.js` request interceptor inspects URL prefix and attaches the correct token: `/users/`, `/games`, `/links/request`, `/links/my-requests` use the **user** token; everything else uses the **admin** token. Auto-redirect on 401 only fires for `/admin/*` routes.
+- The role is a **signed claim and the token's `aud`**; `verifyToken` rejects a
+  token whose audience does not match its role, so one side's token can never be
+  spent as the other's.
+- Both guards **re-read the account on every request**. A ban, mute or deletion
+  takes effect immediately rather than at token expiry.
+- `optionalUser` loads the player if signed in but permits anonymous access —
+  used where spectators and participants share a route.
+- The frontend `api.js` picks the token by URL prefix; `/games/admin`,
+  `/messages/admin` and `/links/admin` resolve to the **admin** token even
+  though their prefixes are otherwise player-facing.
 
-## Online Chess Platform
+---
 
-- **Server-authoritative**: every move is validated by `python-chess`. The client previews legality with `chess.js` but the server's `Game.fen` is the source of truth.
-- **Polling, not WebSockets**: clients GET `/api/games/<id>` every ~1.5s; the response carries `version = move_count*2 + (1 if ended else 0)` so clients can cheaply detect changes. Chat polls every 2.5s.
-- **Elo system** (separate from `Player.rating`): default 1200, K-factor 40 while provisional (<10 games), 20 normal, 10 if rating ≥ 2400. Rating snapshots stored on every finished game.
-- **Time controls** are server-authoritative budgets per side + Fischer `increment_seconds`. On every move the server subtracts `(now - last_move_at)` from the mover's clock and adds the increment. `_enforce_clocks` is called lazily on every game GET and move attempt — flags loss-on-time. Clients can call `POST /<id>/claim-time` to force the check.
-- **Outcome detection** uses `board.outcome(claim_draw=True)` so threefold/50-move draws are detected.
-- **Spectator mode**: anyone (logged-in or not) can GET `/api/games/<id>` and `/api/games/live`; only the two participants can move/resign/offer draw/chat. The `/play/:id` route is public — spectators see the board but get a "Spectating" badge in the sidebar.
-- **In-game chat**: messages limited to 500 chars; URLs are auto-stripped server-side (`_URL_RE`) to prevent off-platform contact/scams. Users can mute notifications client-side (localStorage `mute_game_chat`). Admins can globally `chat_muted` a user or `chat_disabled` a single game. Spectators see chat read-only.
-- **Direct messages**: ≤2000 chars, URLs preserved (DMs not chat). Users can block (`BlockedUser`) — blocking prevents both DMs and game-accept across the pair. `notif_dm=False` blocks incoming DMs. `chat_muted` blocks outgoing.
-- **Lobby filters**: `rated`, `color`, `min_tc`, `max_tc`, `viewer_rating` (auto-hides challenges whose `min_opp_rating`/`max_opp_rating` exclude the viewer). Challenge creators set their accepted rating range when posting.
-- **Voiding games**: admin can void a finished game with a reason; the Elo deltas and game-count stats are reverted on both players.
+## Chess Engine Rules (CRITICAL)
+
+**`Game.moves` (space-separated UCI) is the source of truth.** `fen`, `pgn` and
+`moveCount` are caches recomputed from it on every write.
+
+- `lib/chess.ts::replayGame()` replays from the start position on every move
+  request. This is what makes **threefold repetition** detectable — a FEN
+  carries no history — and it means a tampered or stale cache can never let an
+  illegal position stand.
+- `playMove()` returns everything to persist. Never write `fen` or `pgn` from
+  anywhere else. `pgn` is **movetext only**; use `buildPgn()`, never chess.js's
+  `pgn()`, which emits a seven-tag header block.
+- Threefold repetition and the fifty-move rule are applied **automatically**,
+  not left as a claim.
+- Replaying a 200-ply game costs well under a millisecond.
+- `npm run db:repair` rebuilds the caches for every game.
+
+### Concurrency
+
+Every transition is a **guarded conditional update**:
+
+| Action | Guard |
+|---|---|
+| Move | `{ _id, status: 'active', version }` — a stale read writes nothing |
+| Accept | `{ _id, status: 'open' }` — only one of two racing accepts wins |
+| Finish | `{ _id, status: 'active' }` + `ratingsApplied` for the rating write |
+| Void | `{ _id, voidedAt: null }` — cannot reverse Elo twice |
+
+All are covered by tests firing simultaneous requests.
+
+### Clocks
+
+Milliseconds, server-authoritative. On each move the server subtracts elapsed
+time and adds the Fischer increment; milliseconds avoid the rounding drift a
+whole-second budget accumulates in the mover's favour. `enforceClock()` runs
+lazily on every game read and move attempt. Flagging against an opponent who
+cannot mate (`canMate()`: bare king, or king and one minor piece) is a **draw**.
+Responses carry `server_time` so clients correct for their own skew.
+
+### Elo
+
+Separate from `Player.rating`. Start 1200. K = 40 provisional (<10 games), 20
+established, 10 at 2400+. Both players' before/after are stored on the game, so
+voiding reverses the exact deltas applied.
+
+---
+
+## Real-time (Socket.IO)
+
+- Rooms: `game:<id>`, `lobby`, `user:<id>`.
+- Handshake reads the player token from `auth.token`; anonymous is allowed
+  (spectating is public) and simply joins no user room.
+- Routes publish through `realtime/publish.ts`, never by importing the socket
+  server. That keeps the dependency one-way and makes publishing a no-op in
+  tests.
+- **The REST API stays complete and authoritative.** Every live view also polls
+  — 30s while connected, 2s while not — so a client behind a WebSocket-blocking
+  proxy still works.
+- Clients accept an update only when `version` is newer, so an out-of-order
+  frame cannot move the board backwards.
+- `version` increments on **any** observable change, including draw offers and
+  chat toggles — not just moves.
+
+---
 
 ## Player-Profile Linking (SECURITY-CRITICAL)
 
-Users can request to link their account to an existing `Player` row, but **never modify FIDE-side data**:
+Users may request association with an editorial `Player`. The link is one-way
+and confers **identity only**:
 
-- The link is one-way: `User.linked_player_id` references `Player.id`.
-- The Player row is **read-only from the user's perspective** — there is no API surface that lets a user mutate a Player by virtue of being linked. Only `@jwt_required` admin endpoints in `players.py` can edit players.
-- The link is set **only** by an admin approving a `LinkRequest` (route `POST /api/links/admin/requests/<id>/approve`). Direct mutation of `linked_player_id` by a user is impossible — there is no endpoint that accepts it.
-- Approval also enforces uniqueness: a Player can be linked to at most one User; if another user is already linked, approval returns 409.
-- An admin can break a link via `POST /api/links/admin/users/<id>/unlink`.
+- Only an admin approving a `LinkRequest` ever sets `User.linkedPlayerId`.
+  No endpoint accepts it from a user.
+- Being linked grants **no write access** to the `Player` row. Only
+  `requireAdmin` routes in `players.ts` can mutate players. There is a feature
+  test that signs in as a linked user, attempts the edit, and asserts 403.
+- A unique partial index guarantees one profile cannot back two accounts.
+- `POST /api/links/admin/users/:id/unlink` breaks a link.
+
+---
 
 ## API Routes Summary
 
-**Public (no auth):**
-- `GET /api/players`, `GET /api/players/<id>`, `GET /api/players/homepage`
-- `GET /api/news`, `GET /api/news/<id>`
-- `GET /api/strings`
-- `GET /api/games/lobby` (filters: `rated`, `color`, `min_tc`, `max_tc`, `viewer_rating`)
-- `GET /api/games/recent`, `GET /api/games/leaderboard`, `GET /api/games/<id>`
-- `GET /api/games/live` (active games for spectators; filters: `min_rating`, `max_rating`)
-- `GET /api/games/<id>/chat` (read-only for spectators)
+73 routes, all under `/api`, all JSON. Errors are `{ error }` plus `details` for
+validation failures and `code` for cases the SPA branches on
+(`email_unverified`, `account_banned`). Lists take `?page=` / `?per_page=`;
+bilingual reads take `?lang=en|ar`.
 
-**User (requires verified user JWT):**
-- `POST /api/users/auth/register` (rate 5/min;30/hr)
-- `POST /api/users/auth/verify-otp` (10/min)
-- `POST /api/users/auth/resend-otp` (3/min;10/hr)
-- `POST /api/users/auth/login` (10/min)
-- `GET /api/users/auth/me`, `PATCH /api/users/auth/me` (also notif prefs: notif_email, notif_dm, notif_game_chat, notif_sound)
-- `POST /api/games` (create, body: `color`, `time_control_seconds`, `increment_seconds`, `rated`, `min_opp_rating`, `max_opp_rating`)
-- `POST /api/games/<id>/cancel`, `/accept`, `/move`, `/resign`, `/draw-offer`, `/draw-accept`, `/draw-decline`, `/claim-time`
-- `POST /api/games/<id>/chat` (20/min, ≤500 chars, URLs auto-stripped, blocked when chat_muted or chat_disabled)
-- `GET /api/games/me/games?status=active|finished|all`
-- `GET /api/messages/threads`, `GET /api/messages/with/<user_id>`, `POST /api/messages/with/<user_id>`
-- `GET /api/messages/unread-count`
-- `GET /api/messages/blocks`, `POST /api/messages/blocks/<user_id>`, `DELETE /api/messages/blocks/<user_id>`
-- `POST /api/links/request` (5/hr), `GET /api/links/my-requests`
+**Public:** `GET /health`, `/players`, `/players/:id`, `/players/homepage`,
+`/news`, `/news/:id`, `/strings`, `/games/lobby`, `/games/live`,
+`/games/recent`, `/games/leaderboard`, `/games/:id`, `/games/:id/chat`;
+`POST /auth/login`, `/auth/setup`, `/users/auth/{register,verify-otp,resend-otp,login}`.
 
-**Admin (requires admin JWT):**
-- `POST /api/auth/setup`, `POST /api/auth/login`, `GET /api/auth/me`
-- `POST/PUT/DELETE /api/players`, `POST/PUT/DELETE /api/news`
-- `POST /api/upload/image`
-- CRUD `/api/strings`
-- `GET /api/links/admin/requests`, `POST /api/links/admin/requests/<id>/approve|reject`
-- `POST /api/links/admin/users/<id>/unlink`
-- `GET /api/links/admin/users?status=all|active|banned|unverified&search=&page=&per_page=`
-- `POST /api/links/admin/users/<id>/ban|unban|verify`
-- `POST /api/links/admin/users/<id>/mute|unmute` (chat-mute toggle)
-- `GET /api/games/admin/games?status=open|active|finished|voided&search=&page=`
-- `POST /api/games/admin/games/<id>/abort` (aborts active game, no rating change)
-- `POST /api/games/admin/games/<id>/void` (reverts Elo + stats; body `{reason}`)
-- `POST /api/games/admin/games/<id>/chat-toggle`
-- `GET /api/games/admin/messages` (game-chat moderation, paginated, filterable)
-- `DELETE /api/games/admin/messages/<id>`
-- `GET /api/messages/admin/dms` (DM moderation), `DELETE /api/messages/admin/dms/<id>`
+**Player token:** `GET|PATCH /users/auth/me`; `POST /games`;
+`POST /games/:id/{accept,cancel,move,resign,draw-offer,draw-accept,draw-decline,claim-time,chat}`;
+`GET /games/me/games`; `/messages/{threads,unread-count}`;
+`GET|POST /messages/with/:userId`; `/messages/blocks*`;
+`POST /links/request`; `GET /links/my-requests`.
+
+**Admin token:** `GET /auth/me`; players and news CRUD; `GET /news/admin`;
+`/strings/{all,bulk}` and `POST|DELETE /strings*`; `POST /upload/image`;
+`/games/admin/{stats,games,messages}` incl. `abort`, `void`, `chat-toggle`;
+`/messages/admin/dms*`; `/links/admin/requests*`; `/links/admin/users*`
+(`ban`, `unban`, `verify`, `mute`, `unmute`, `unlink`).
 
 ---
 
 ## Homepage Features
 
-The public homepage has several dynamic sections managed via the admin panel:
+| Feature | How it works |
+|---|---|
+| **Featured News** | One article with `isFeatured` is the spotlight card. Setting it clears the previous one. Falls back to the latest article. |
+| **Player of the Month** | One player with `isPlayerOfMonth`, shown in a gold card. Exclusive. |
+| **Tournament Winner** | One player with `isTournamentWinner`, shown in a blue card. Exclusive. |
 
-| Feature | How It Works |
-|---------|-------------|
-| **Featured News** | One news article with `is_featured=True` appears as the large spotlight card. Only one at a time (toggling auto-unsets the previous). Falls back to the latest news if none is marked. |
-| **Player of the Month** | One player with `is_player_of_month=True` is shown in a gold card. Set via the player edit form. Only one at a time. |
-| **Tournament Winner** | One player with `is_tournament_winner=True` is shown in a blue card. Set via the player edit form. Only one at a time. |
+`GET /api/players/homepage?lang=en` returns `{ player_of_month, tournament_winner }`.
 
-**API Endpoint:** `GET /api/players/homepage?lang=en` returns `{ player_of_month, tournament_winner }` for the homepage cards.
+---
+
+## Guardrails & Safety Rules
+
+### DO NOT
+
+- **Never** commit `.env` or secrets.
+- **Never** write `fen`, `pgn` or `moveCount` from anywhere but `playMove()`.
+  They are caches; `moves` is the truth.
+- **Never** validate a move against the stored FEN — always replay `moves`.
+- **Never** read a game, decide, then write without a guard. Use a conditional
+  update on `version` or `status`.
+- **Never** use chess.js's `pgn()` for the API — it emits header tags.
+- **Never** allow `*` CORS origins, or enable `TRUST_PROXY` without a proxy.
+- **Never** trust a file extension or client MIME type on upload.
+- **Never** interpolate user input into a `RegExp` — use `escapeRegex()`.
+- **Never** add a field to a model and assume it is private; serializers list
+  fields explicitly, so add it deliberately or not at all.
+- **Never** use a `sparse` unique index where the field is stored as explicit
+  `null` — use `partialFilterExpression`.
+- **Never** truncate chat before stripping URLs; the replacement can grow it.
+- **Never** import the Socket.IO server from a route; publish through
+  `realtime/publish.ts`.
+
+### DO
+
+- **Always** validate request input with Zod at the boundary.
+- **Always** add a rate limiter to new endpoints accepting input.
+- **Always** guard admin endpoints with `requireAdmin`, player endpoints with
+  `requireUser`.
+- **Always** bump `version` when changing anything a client can observe.
+- **Always** serialize responses through `lib/serializers.ts`.
+- **Always** add both `en` and `ar` keys when adding a UI string — the locale
+  files must stay key-for-key equal.
+- **Always** run `npm run db:indexes` after adding an index; several are
+  constraints the code relies on.
+- **Always** run `npm test`, `npm run typecheck` and `npm run lint` before
+  committing.
+- **Always** update this file when adding models, routes, or changing
+  architecture.
+
+### Database Rules
+
+- MongoDB 7+; **a replica set is required** for transactions (the game-finish
+  path). `supportsTransactions()` degrades to sequential writes on standalone,
+  but the guards still prevent double-application.
+- Schema changes are code changes in `server/src/models/`; there is no migration
+  runner. Adding an index means updating the model and running `db:indexes`.
+- Documents are camelCase; the wire format is snake_case via serializers.
+
+### API Design Standards
+
+- All routes under `/api/`; proper status codes (200, 201, 400, 401, 403, 404,
+  409, 422, 429).
+- Errors are `{ "error": "message" }`, with `details` for validation and `code`
+  for machine-readable cases.
+- `?lang=en|ar` for bilingual content; `?page=` / `?per_page=` for lists.
+- Bilingual fields follow `fieldEn` / `fieldAr` (`field_en` / `field_ar` on the
+  wire).
+
+---
+
+## Testing
+
+`npm test` — 160 tests, ~26s, against a real MongoDB (`chess_hub_test`).
+
+- **Unit:** chess (incl. perft against six reference positions), Elo, sanitisers.
+- **Feature:** auth and role separation, CMS and uploads, games and concurrency,
+  Socket.IO delivery, social and moderation.
+- `tests/helpers/app.ts` provides `request()`, `resetDatabase()`, `makeUser()`,
+  `makeAdmin()`, `auth(token)`. It syncs indexes before the first assertion
+  because several are constraints under test.
+- Perft is not ceremony: move legality is the entire security model of a chess
+  server, so it is verified here rather than trusted to the dependency.

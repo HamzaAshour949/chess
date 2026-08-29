@@ -78,7 +78,7 @@ function ProfileTab() {
 function LinkTab() {
   const { t } = useTranslation();
   const { lang } = useLanguage();
-  const { user, refresh } = useUserAuth();
+  const { user } = useUserAuth();
 
   const [requests, setRequests] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -295,30 +295,44 @@ function NotificationsTab() {
       await updateProfile(next);
       setInfo(t("save") + " ✓");
       setTimeout(() => setInfo(""), 1500);
-    } catch (e) { /* keep local */ }
+    } catch { /* keep the local value; the server copy is unchanged */ }
     finally { setBusy(false); }
   };
 
-  const Row = ({ k, label, desc }) => (
+  return (
+    <div className="surface-elev p-6 max-w-xl space-y-3">
+      <h2 className="text-lg font-bold text-white mb-2">{t("notifications")}</h2>
+      {["notif_email", "notif_dm", "notif_game_chat", "notif_sound"].map((key) => (
+        <PreferenceRow
+          key={key}
+          label={t(key)}
+          desc={t(`${key}_desc`)}
+          checked={prefs[key]}
+          disabled={busy}
+          onChange={() => toggle(key)}
+        />
+      ))}
+      {info && <p className="text-xs text-emerald-400">{info}</p>}
+    </div>
+  );
+}
+
+/** Declared at module scope so React keeps the same component type. */
+function PreferenceRow({ label, desc, checked, disabled, onChange }) {
+  return (
     <label className="flex items-center justify-between cursor-pointer surface-2 px-4 py-3">
       <div>
         <div className="text-white font-medium text-sm">{label}</div>
         {desc && <div className="text-xs text-slate-400 mt-0.5">{desc}</div>}
       </div>
-      <input type="checkbox" checked={prefs[k]} onChange={() => toggle(k)} disabled={busy}
-        className="w-5 h-5 accent-amber-500" />
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={onChange}
+        disabled={disabled}
+        className="w-5 h-5 accent-amber-500"
+      />
     </label>
-  );
-
-  return (
-    <div className="surface-elev p-6 max-w-xl space-y-3">
-      <h2 className="text-lg font-bold text-white mb-2">{t("notifications")}</h2>
-      <Row k="notif_email" label={t("notif_email")} desc={t("notif_email_desc")} />
-      <Row k="notif_dm" label={t("notif_dm")} desc={t("notif_dm_desc")} />
-      <Row k="notif_game_chat" label={t("notif_game_chat")} desc={t("notif_game_chat_desc")} />
-      <Row k="notif_sound" label={t("notif_sound")} desc={t("notif_sound_desc")} />
-      {info && <p className="text-xs text-emerald-400">{info}</p>}
-    </div>
   );
 }
 

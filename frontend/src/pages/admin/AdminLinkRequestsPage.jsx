@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useLanguage } from "../../context/LanguageContext";
 import api from "../../api";
@@ -12,14 +12,15 @@ export default function AdminLinkRequestsPage() {
   const [busy, setBusy] = useState(null);
   const [error, setError] = useState("");
 
-  const load = () => {
+  const load = useCallback(() => {
     setLoading(true);
     api.get(`/links/admin/requests?status=${filter}&lang=${lang}`)
       .then((r) => setItems(r.data || []))
+      .catch(() => setItems([]))
       .finally(() => setLoading(false));
-  };
+  }, [filter, lang]);
 
-  useEffect(() => { load(); }, [filter, lang]);
+  useEffect(() => { load(); }, [load]);
 
   const review = async (id, action) => {
     const note = prompt(t("admin_note") + " (optional):") || "";

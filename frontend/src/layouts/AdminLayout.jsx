@@ -1,14 +1,12 @@
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../context/AuthContext";
-import { useLanguage } from "../context/LanguageContext";
 import LanguageDropdown from "../components/LanguageDropdown";
 import { useState } from "react";
 
 export default function AdminLayout() {
   const { t } = useTranslation();
   const { admin, logout } = useAuth();
-  const { lang, toggleLanguage } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);

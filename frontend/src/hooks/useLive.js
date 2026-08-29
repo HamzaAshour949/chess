@@ -1,27 +1,30 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import api from "../api";
 import { getSocket } from "../realtime";
 
-/** True while the shared socket is connected, so callers can fall back. */
+/**
+ * True while the shared socket is connected, so callers can fall back.
+ *
+ * The socket is an external store, so it is read through useSyncExternalStore
+ * rather than mirrored into state by an effect — that avoids a render pass on
+ * mount and cannot miss a connect that lands between render and subscribe.
+ */
+function subscribeToSocket(onChange) {
+  const socket = getSocket();
+  socket.on("connect", onChange);
+  socket.on("disconnect", onChange);
+  return () => {
+    socket.off("connect", onChange);
+    socket.off("disconnect", onChange);
+  };
+}
+
 export function useSocketStatus() {
-  const [connected, setConnected] = useState(() => getSocket().connected);
-
-  useEffect(() => {
-    const socket = getSocket();
-    const onConnect = () => setConnected(true);
-    const onDisconnect = () => setConnected(false);
-
-    socket.on("connect", onConnect);
-    socket.on("disconnect", onDisconnect);
-    setConnected(socket.connected);
-
-    return () => {
-      socket.off("connect", onConnect);
-      socket.off("disconnect", onDisconnect);
-    };
-  }, []);
-
-  return connected;
+  return useSyncExternalStore(
+    subscribeToSocket,
+    () => getSocket().connected,
+    () => false, // server-render / first paint: assume disconnected
+  );
 }
 
 /**
@@ -131,7 +134,12 @@ export function useLiveChat(gameId) {
 export function useLiveLobby(load) {
   const connected = useSocketStatus();
   const loadRef = useRef(load);
-  loadRef.current = load;
+
+  // Assigned in an effect, not during render: a ref written while rendering is
+  // not a supported pattern and can tear under concurrent rendering.
+  useEffect(() => {
+    loadRef.current = load;
+  }, [load]);
 
   useEffect(() => {
     const socket = getSocket();

@@ -97,17 +97,17 @@ export default function MessagesPage() {
           {threads.length === 0 ? (
             <p className="text-xs text-slate-500 p-3">{t("no_threads")}</p>
           ) : threads.map((th) => (
-            <button key={th.user.id}
-              onClick={() => navigate(`/messages/${th.user.id}`)}
+            <button key={th.other_user.id}
+              onClick={() => navigate(`/messages/${th.other_user.id}`)}
               className={`w-full text-start p-3 rounded transition flex items-center gap-3 ${
-                userId == th.user.id ? "bg-amber-500/15" : "hover:bg-white/5"
+                userId === th.other_user.id ? "bg-amber-500/15" : "hover:bg-white/5"
               }`}>
               <div className="w-9 h-9 rounded-full bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center font-bold text-slate-200 text-sm">
-                {(th.user.display_name || "?").charAt(0).toUpperCase()}
+                {(th.other_user.display_name || "?").charAt(0).toUpperCase()}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between">
-                  <span className="text-white font-medium text-sm truncate">{th.user.display_name}</span>
+                  <span className="text-white font-medium text-sm truncate">{th.other_user.display_name}</span>
                   {th.unread > 0 && <span className="chip chip-gold text-xs">{th.unread}</span>}
                 </div>
                 <div className="text-xs text-slate-400 truncate">

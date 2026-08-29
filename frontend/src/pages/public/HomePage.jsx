@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Autoplay, EffectFade, Navigation, Pagination } from "swiper/modules";
-import { motion } from "framer-motion";
 
 import { useLanguage } from "../../context/LanguageContext";
 import { useUserAuth } from "../../context/UserAuthContext";

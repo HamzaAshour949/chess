@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Autoplay, EffectFade, Navigation, Pagination } from "swiper/modules";
+import { motion as Motion } from "framer-motion";
 
 import { useLanguage } from "../../context/LanguageContext";
 import { useUserAuth } from "../../context/UserAuthContext";
@@ -56,7 +57,7 @@ function HeroCarousel({ items }) {
             <div className="relative h-full max-w-7xl mx-auto px-4 sm:px-8 lg:px-12 flex items-end pb-12 sm:pb-16">
               <div className="max-w-3xl">
                 <span className="chip chip-gold mb-4 animate-fade-up">★ {t("featured")}</span>
-                <motion.h2
+                <Motion.h2
                   key={n.id + "-t"}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -64,9 +65,9 @@ function HeroCarousel({ items }) {
                   className="text-3xl sm:text-5xl lg:text-6xl font-extrabold text-white leading-tight tracking-tight mb-4 [text-wrap:balance]"
                 >
                   {n.title}
-                </motion.h2>
+                </Motion.h2>
                 {n.content && (
-                  <motion.p
+                  <Motion.p
                     key={n.id + "-c"}
                     initial={{ opacity: 0, y: 16 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -74,9 +75,9 @@ function HeroCarousel({ items }) {
                     className="text-slate-300 text-base sm:text-lg max-w-2xl line-clamp-2 mb-6"
                   >
                     {stripHtml(n.content).slice(0, 240)}
-                  </motion.p>
+                  </Motion.p>
                 )}
-                <motion.div
+                <Motion.div
                   initial={{ opacity: 0, y: 16 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.6, delay: 0.25 }}
@@ -89,7 +90,7 @@ function HeroCarousel({ items }) {
                       <span className="text-slate-300">{n.player_name}</span>
                     </>
                   )}
-                </motion.div>
+                </Motion.div>
               </div>
             </div>
           </Link>

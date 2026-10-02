@@ -10,6 +10,8 @@ export default [
       '**/node_modules/**',
       '**/dist/**',
       '.mongo-data/**',
+      '.test-uploads/**',
+      'uploads/**',
       'server/src/db/seed-data/**',
       '**/*.min.js',
     ],
@@ -17,15 +19,16 @@ export default [
 
   js.configs.recommended,
 
-  // --- Server: TypeScript, Node ------------------------------------------
+  // --- Server: TypeScript on Bun ------------------------------------------
   ...tseslint.configs.recommended.map((config) => ({
     ...config,
-    files: ['server/**/*.ts'],
+    files: ['server/**/*.ts', 'scripts/**/*.ts'],
   })),
   {
-    files: ['server/**/*.ts'],
+    files: ['server/**/*.ts', 'scripts/**/*.ts'],
     languageOptions: {
-      globals: { ...globals.node },
+      // Bun implements the Node globals, plus its own `Bun` namespace.
+      globals: { ...globals.node, Bun: 'readonly' },
       parserOptions: { ecmaVersion: 2023, sourceType: 'module' },
     },
     rules: {
@@ -45,7 +48,7 @@ export default [
   {
     files: ['frontend/**/*.{js,jsx}'],
     languageOptions: {
-      globals: { ...globals.browser },
+      globals: { ...globals.browser, __SOCKET_ORIGIN__: 'readonly' },
       parserOptions: {
         ecmaVersion: 2023,
         sourceType: 'module',
@@ -71,6 +74,12 @@ export default [
       'no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^[A-Z_]' }],
       eqeqeq: ['error', 'always', { null: 'ignore' }],
     },
+  },
+
+  // Command-line scripts talk to the terminal.
+  {
+    files: ['scripts/**/*.ts'],
+    rules: { 'no-console': 'off' },
   },
 
   // Config files run in Node.

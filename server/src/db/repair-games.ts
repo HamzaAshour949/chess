@@ -1,4 +1,3 @@
-import { fileURLToPath } from 'node:url';
 import { connectDatabase, disconnectDatabase } from './mongoose.js';
 import { Game } from '../models/index.js';
 import { buildPgn, replayGame } from '../lib/chess.js';
@@ -40,7 +39,7 @@ export async function repairGames(): Promise<{ checked: number; repaired: number
   return { checked: games.length, repaired, broken };
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+if (import.meta.main) {
   await connectDatabase();
   const result = await repairGames();
   logger.info(result, 'Game cache repair complete');

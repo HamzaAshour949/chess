@@ -1,4 +1,3 @@
-import { fileURLToPath } from 'node:url';
 import { connectDatabase, disconnectDatabase } from './mongoose.js';
 import {
   Admin,
@@ -28,15 +27,15 @@ const MODELS = [
 ];
 
 /**
- * Create or update every declared index.
- *
- * Index building is an explicit step rather than something every process races
- * to do on boot (`autoIndex` is off), because on a large collection it is slow
- * and a surprise. Run it on deploy, from the seeder, and from the test harness.
+ * Make the database's indexes match the schemas: create what is missing,
+ * rebuild what changed, drop what no schema declares any more.
  *
  * Several of the indexes are not optimisations but constraints — one open
  * challenge per player, one pending link request per user, one account per
- * player profile — so the application depends on this having run.
+ * player profile, case-insensitive unique usernames — so the application
+ * depends on this having run. The server does it on boot unless
+ * DB_SYNC_INDEXES=0 (for deployments that run it as a release step instead),
+ * and it is also available as `bun run db:indexes`.
  */
 export async function syncIndexes(): Promise<void> {
   for (const model of MODELS) {
@@ -45,8 +44,7 @@ export async function syncIndexes(): Promise<void> {
   logger.debug({ models: MODELS.map((model) => model.modelName) }, 'Indexes synced');
 }
 
-// Also runnable directly: npm run db:indexes
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+if (import.meta.main) {
   await connectDatabase();
   await syncIndexes();
   logger.info('Indexes synced');

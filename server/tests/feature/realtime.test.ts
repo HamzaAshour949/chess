@@ -1,6 +1,6 @@
 import { createServer, type Server as HttpServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import { io as connectClient, type Socket as ClientSocket } from 'socket.io-client';
 import type { Server as SocketServer } from 'socket.io';
 import supertest from 'supertest';
@@ -26,8 +26,8 @@ beforeEach(async () => {
 
 afterEach(async () => {
   for (const client of clients.splice(0)) client.disconnect();
-  await closeRealtime(socketServer);
-  await new Promise<void>((resolve) => httpServer.close(() => resolve()));
+  // Closes the HTTP server too.
+  await closeRealtime(socketServer, httpServer);
 });
 
 afterAll(closeDatabase);

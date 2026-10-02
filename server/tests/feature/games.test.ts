@@ -1,5 +1,7 @@
-import { afterAll, beforeEach, describe, expect, it } from 'vitest';
-import { auth, closeDatabase, makeUser, request, resetDatabase } from '../helpers/app.js';
+import { afterAll, beforeEach, describe, expect, it } from 'bun:test';
+import { auth, closeDatabase, makeUser, request, resetDatabase, sleep } from '../helpers/app.js';
+import { Types } from 'mongoose';
+import { sweepGames } from '../../src/services/game-service.js';
 import { BlockedUser, Game, User } from '../../src/models/index.js';
 
 beforeEach(resetDatabase);
@@ -372,46 +374,78 @@ describe('draw offers', () => {
   });
 });
 
-describe('clocks', () => {
-  it('deducts thinking time and adds the increment', async () => {
-    const { white, agent, gameId } = await startedGame({ timeControl: 60, increment: 5 });
-
-    await new Promise((resolve) => setTimeout(resolve, 1100));
-    const res = await agent
+/** Play moves in order, alternating the two players' tokens. */
+async function play(
+  agent: Awaited<ReturnType<typeof request>>,
+  gameId: string,
+  tokens: { white: string; black: string },
+  moves: string[],
+) {
+  let last;
+  for (const [index, move] of moves.entries()) {
+    last = await agent
       .post(`/api/games/${gameId}/move`)
-      .set(...auth(white.token))
-      .send({ move: 'e2e4' });
+      .set(...auth(index % 2 === 0 ? tokens.white : tokens.black))
+      .send({ move });
+    expect(last.status).toBe(200);
+  }
+  return last!;
+}
+
+describe('clocks', () => {
+  it('does not start the clocks until both players have moved', async () => {
+    const { white, black, agent, gameId, game } = await startedGame({ timeControl: 60, increment: 5 });
+    expect(game.clock_running).toBe(false);
+    expect(Date.parse(game.deadline_at)).toBeGreaterThan(Date.now());
+
+    await sleep(1100);
+    const first = await play(agent, gameId, { white: white.token, black: black.token }, ['e2e4']);
+
+    // A free first move: nothing deducted, no increment either.
+    expect(first.body.white_time_remaining).toBe(60);
+    expect(first.body.black_time_remaining).toBe(60);
+    expect(first.body.clock_running).toBe(false);
+  });
+
+  it('deducts thinking time and adds the increment once both have moved', async () => {
+    const { white, black, agent, gameId } = await startedGame({ timeControl: 60, increment: 5 });
+    const tokens = { white: white.token, black: black.token };
+    const opened = await play(agent, gameId, tokens, ['e2e4', 'e7e5']);
+    expect(opened.body.clock_running).toBe(true);
+
+    await sleep(1100);
+    const res = await play(agent, gameId, tokens, ['g1f3']);
 
     // Roughly one second gone, five added.
     expect(res.body.white_time_remaining).toBeGreaterThan(63);
     expect(res.body.white_time_remaining).toBeLessThan(64.5);
-    // Black's clock has already started, so it is a hair under its budget.
+    // Black's clock has just started, so it is a hair under its budget.
     expect(res.body.black_time_remaining).toBeGreaterThan(59.8);
     expect(res.body.black_time_remaining).toBeLessThanOrEqual(60);
   });
 
   it('counts down for the side to move even without a request', async () => {
-    const { agent, gameId } = await startedGame({ timeControl: 60 });
+    const { white, black, agent, gameId } = await startedGame({ timeControl: 60 });
+    await play(agent, gameId, { white: white.token, black: black.token }, ['e2e4', 'e7e5']);
 
     const first = (await agent.get(`/api/games/${gameId}`)).body.white_time_remaining;
-    await new Promise((resolve) => setTimeout(resolve, 1100));
+    await sleep(1100);
     const second = (await agent.get(`/api/games/${gameId}`)).body.white_time_remaining;
 
     expect(second).toBeLessThan(first);
   });
 
   it('awards the game when a flag falls', async () => {
-    const { agent, gameId } = await startedGame({ timeControl: 60 });
+    const { white, black, agent, gameId } = await startedGame({ timeControl: 60 });
+    await play(agent, gameId, { white: white.token, black: black.token }, ['e2e4', 'e7e5']);
     // Backdate the last move past white's whole budget.
-    await Game.updateOne(
-      { _id: gameId },
-      { $set: { lastMoveAt: new Date(Date.now() - 61_000), startedAt: new Date(Date.now() - 61_000) } },
-    );
+    await Game.updateOne({ _id: gameId }, { $set: { lastMoveAt: new Date(Date.now() - 61_000) } });
 
     const res = await agent.get(`/api/games/${gameId}`);
 
     expect(res.body.status).toBe('black_wins');
     expect(res.body.termination).toBe('timeout');
+    expect(res.body.white_time_remaining).toBe(0);
   });
 
   it('is a draw when the player left on the clock cannot mate', async () => {
@@ -423,6 +457,7 @@ describe('clocks', () => {
         $set: {
           fen: '4k3/8/8/8/8/8/4P3/4K3 w - - 0 40',
           moves: '',
+          moveCount: 2,
           lastMoveAt: new Date(Date.now() - 61_000),
         },
       },
@@ -434,11 +469,101 @@ describe('clocks', () => {
     expect(res.body.termination).toBe('timeout');
   });
 
+  it('aborts a game whose first move never comes, with no rating change', async () => {
+    const { white, agent, gameId } = await startedGame({ timeControl: 300 });
+    await Game.updateOne(
+      { _id: gameId },
+      { $set: { lastMoveAt: new Date(Date.now() - 46_000), startedAt: new Date(Date.now() - 46_000) } },
+    );
+
+    const res = await agent.get(`/api/games/${gameId}`);
+
+    expect(res.body.status).toBe('aborted');
+    expect(res.body.termination).toBe('abandoned');
+    const whiteUser = await User.findById(white.user._id);
+    expect(whiteUser?.gamesPlayed).toBe(0);
+    expect(whiteUser?.onlineRating).toBe(1200);
+  });
+
   it('rejects a time claim while the opponent still has time', async () => {
     const { white, agent, gameId } = await startedGame({ timeControl: 600 });
 
     const res = await agent.post(`/api/games/${gameId}/claim-time`).set(...auth(white.token));
     expect(res.status).toBe(400);
+  });
+});
+
+describe('aborting', () => {
+  it('lets a player abort before both sides have moved', async () => {
+    const { white, black, agent, gameId } = await startedGame();
+    await play(agent, gameId, { white: white.token, black: black.token }, ['e2e4']);
+
+    const res = await agent.post(`/api/games/${gameId}/abort`).set(...auth(black.token));
+
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe('aborted');
+    expect(res.body.termination).toBe('aborted');
+    expect((await User.findById(white.user._id))?.gamesPlayed).toBe(0);
+  });
+
+  it('refuses an abort once both sides have moved', async () => {
+    const { white, black, agent, gameId } = await startedGame();
+    await play(agent, gameId, { white: white.token, black: black.token }, ['e2e4', 'e7e5']);
+
+    const res = await agent.post(`/api/games/${gameId}/abort`).set(...auth(white.token));
+    expect(res.status).toBe(400);
+  });
+});
+
+describe('sweeper', () => {
+  it('settles a fallen flag with nobody watching', async () => {
+    const { white, black, agent, gameId } = await startedGame({ timeControl: 60 });
+    await play(agent, gameId, { white: white.token, black: black.token }, ['e2e4', 'e7e5']);
+    await Game.updateOne(
+      { _id: gameId },
+      {
+        $set: {
+          lastMoveAt: new Date(Date.now() - 61_000),
+          deadlineAt: new Date(Date.now() - 1_000),
+        },
+      },
+    );
+
+    const result = await sweepGames();
+
+    expect(result.settled).toBe(1);
+    const game = await Game.findById(gameId);
+    expect(game?.status).toBe('black_wins');
+    expect(game?.termination).toBe('timeout');
+    expect(game?.deadlineAt).toBeNull();
+  });
+
+  it('withdraws challenges nobody accepted in time', async () => {
+    const { token } = await makeUser();
+    const agent = await request();
+    const created = await agent.post('/api/games').set(...auth(token)).send({});
+    // Through the driver: Mongoose treats createdAt as immutable.
+    await Game.collection.updateOne(
+      { _id: new Types.ObjectId(created.body.id as string) },
+      { $set: { createdAt: new Date(Date.now() - 31 * 60_000) } },
+    );
+
+    const result = await sweepGames();
+
+    expect(result.expired).toBe(1);
+    const game = await Game.findById(created.body.id);
+    expect(game?.status).toBe('aborted');
+    expect(game?.termination).toBe('expired');
+    expect((await agent.get('/api/games/lobby')).body).toHaveLength(0);
+  });
+
+  it('gives a live game from before deadlines existed a deadline', async () => {
+    const { gameId } = await startedGame({ timeControl: 60 });
+    await Game.updateOne({ _id: gameId }, { $set: { deadlineAt: null } });
+
+    await sweepGames();
+
+    expect((await Game.findById(gameId))?.deadlineAt).toBeInstanceOf(Date);
   });
 });
 

@@ -13,6 +13,10 @@ export interface RealtimeEmitter {
   gameMessage(gameId: string, message: unknown): void;
   directMessage(recipientId: string, message: unknown): void;
   notifyUser(userId: string, event: string, payload: unknown): void;
+  /** Drop every socket a user holds, e.g. after a ban. */
+  disconnectUser(userId: string): void;
+  /** Does the user have at least one connected socket on this instance? */
+  isOnline(userId: string): boolean;
 }
 
 export interface MoveInfo {
@@ -29,8 +33,8 @@ export function setEmitter(next: RealtimeEmitter | null): void {
 /**
  * Push a game's new state to everyone watching it.
  *
- * `channel` of "lobby" also refreshes the lobby list, for the transitions that
- * change what is on offer: created, cancelled, accepted.
+ * `channel` of "lobby" also refreshes the lobby and live-game lists, for the
+ * transitions that change what is on offer or on air.
  */
 export function publishGame(game: GameDoc, channel?: 'lobby', move?: MoveInfo): void {
   emitter?.gameUpdated(game, move);
@@ -47,4 +51,12 @@ export function publishDirectMessage(recipientId: string, message: unknown): voi
 
 export function notifyUser(userId: string, event: string, payload: unknown): void {
   emitter?.notifyUser(userId, event, payload);
+}
+
+export function disconnectUser(userId: string): void {
+  emitter?.disconnectUser(userId);
+}
+
+export function isOnline(userId: string): boolean {
+  return emitter?.isOnline(userId) ?? false;
 }

@@ -7,6 +7,11 @@ export interface TokenPayload {
   /** Subject: the actor's id. */
   sub: string;
   role: Role;
+  /**
+   * The account's `tokenVersion` when the token was issued. A password
+   * change bumps the account's value, and every older token stops working.
+   */
+  ver: number;
 }
 
 const ISSUER = 'chess-hub';
@@ -20,8 +25,8 @@ const ISSUER = 'chess-hub';
  * simply *lacking* a role claim, so anything that failed to set the claim
  * silently authenticated as an admin.
  */
-export function signToken(id: string, role: Role): string {
-  return jwt.sign({ role }, env.JWT_SECRET, {
+export function signToken(id: string, role: Role, version = 0): string {
+  return jwt.sign({ role, ver: version }, env.JWT_SECRET, {
     subject: id,
     issuer: ISSUER,
     audience: role,
@@ -36,6 +41,7 @@ export function verifyToken(token: string): TokenPayload | null {
       issuer: ISSUER,
       // Both roles are acceptable audiences; the caller checks which one.
       audience: ['admin', 'user'],
+      algorithms: ['HS256'],
     });
 
     if (typeof decoded === 'string') return null;
@@ -45,7 +51,8 @@ export function verifyToken(token: string): TokenPayload | null {
     // side can never be replayed as the other.
     if (decoded.aud !== role) return null;
 
-    return { sub, role };
+    const ver = typeof decoded.ver === 'number' ? decoded.ver : 0;
+    return { sub, role, ver };
   } catch {
     return null;
   }

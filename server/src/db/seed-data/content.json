@@ -329,7 +329,7 @@
     {
       "key": "app_name",
       "lang": "en",
-      "value": "Chess Players"
+      "value": "Chess Hub"
     },
     {
       "key": "home",
@@ -364,7 +364,7 @@
     {
       "key": "search",
       "lang": "en",
-      "value": "Search..."
+      "value": "Search"
     },
     {
       "key": "no_results",
@@ -639,12 +639,12 @@
     {
       "key": "welcome",
       "lang": "en",
-      "value": "Welcome to Chess Players Hub"
+      "value": "The home of chess online"
     },
     {
       "key": "welcome_desc",
       "lang": "en",
-      "value": "Your source for chess player profiles and news from around the world"
+      "value": "Browse profiles of the world's best players, follow the latest news, and play live games against opponents from around the world."
     },
     {
       "key": "featured_players",
@@ -734,7 +734,7 @@
     {
       "key": "app_name",
       "lang": "ar",
-      "value": "لاعبو الشطرنج"
+      "value": "مركز الشطرنج"
     },
     {
       "key": "home",
@@ -769,7 +769,7 @@
     {
       "key": "search",
       "lang": "ar",
-      "value": "بحث..."
+      "value": "بحث"
     },
     {
       "key": "no_results",
@@ -1044,12 +1044,12 @@
     {
       "key": "welcome",
       "lang": "ar",
-      "value": "مرحباً بكم في مركز لاعبي الشطرنج"
+      "value": "بيت الشطرنج على الإنترنت"
     },
     {
       "key": "welcome_desc",
       "lang": "ar",
-      "value": "مصدرك لملفات لاعبي الشطرنج والأخبار من جميع أنحاء العالم"
+      "value": "تصفح ملفات أبرز اللاعبين، تابع آخر الأخبار، والعب مباريات حية مع لاعبين من حول العالم."
     },
     {
       "key": "featured_players",

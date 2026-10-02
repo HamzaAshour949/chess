@@ -10,7 +10,13 @@ export const logger = pino({
     : {
         transport: {
           target: 'pino-pretty',
-          options: { colorize: true, translateTime: 'HH:MM:ss', ignore: 'pid,hostname' },
+          // The message already says "GET /api/... 200 12ms"; the request and
+          // response objects stay in the structured (production) output only.
+          options: {
+            colorize: true,
+            translateTime: 'HH:MM:ss',
+            ignore: 'pid,hostname,req,res,responseTime',
+          },
         },
       }),
   redact: {

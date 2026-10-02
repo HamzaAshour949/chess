@@ -3,11 +3,12 @@ import { env } from '../config/env.js';
 import { logger } from '../lib/logger.js';
 
 mongoose.set('strictQuery', true);
-// Index creation is an explicit deploy step (npm run db:indexes), not something
-// that races every process on boot.
+// Index creation is an explicit step (see sync-indexes.ts), not something every
+// model races to do the first time it is used.
 mongoose.set('autoIndex', false);
 
 let connecting: Promise<typeof mongoose> | null = null;
+let transactions: Promise<boolean> | null = null;
 
 export async function connectDatabase(uri: string = env.MONGODB_URI): Promise<typeof mongoose> {
   if (mongoose.connection.readyState === 1) return mongoose;
@@ -33,9 +34,15 @@ export async function connectDatabase(uri: string = env.MONGODB_URI): Promise<ty
 
 export async function disconnectDatabase(): Promise<void> {
   connecting = null;
+  transactions = null;
   if (mongoose.connection.readyState !== 0) {
     await mongoose.disconnect();
   }
+}
+
+/** True while the driver holds a live connection; used by the health check. */
+export function isDatabaseConnected(): boolean {
+  return mongoose.connection.readyState === 1;
 }
 
 /**
@@ -43,15 +50,19 @@ export async function disconnectDatabase(): Promise<void> {
  *
  * MongoDB only offers them on a replica set or sharded cluster. Running
  * standalone is a valid (if weaker) setup, so callers fall back to sequential
- * writes rather than failing outright.
+ * writes rather than failing outright. The topology does not change while the
+ * process runs, so the answer is asked for once, not on every game finish.
  */
-export async function supportsTransactions(): Promise<boolean> {
-  try {
-    const info = await mongoose.connection.db?.admin().command({ hello: 1 });
-    return Boolean(info?.setName || info?.msg === 'isdbgrid');
-  } catch {
-    return false;
-  }
+export function supportsTransactions(): Promise<boolean> {
+  transactions ??= (async () => {
+    try {
+      const info = await mongoose.connection.db?.admin().command({ hello: 1 });
+      return Boolean(info?.setName || info?.msg === 'isdbgrid');
+    } catch {
+      return false;
+    }
+  })();
+  return transactions;
 }
 
 export { mongoose };

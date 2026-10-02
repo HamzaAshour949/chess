@@ -1,9 +1,10 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { Chess } from 'chess.js';
 import {
   IllegalMoveError,
   START_FEN,
   buildPgn,
+  buildPgnDocument,
   describeOutcome,
   legalMovesUci,
   playMove,
@@ -191,5 +192,38 @@ describe('helpers', () => {
     expect(moves).toHaveLength(20);
     expect(moves).toContain('e2e4');
     expect(moves).toContain('g1f3');
+  });
+});
+
+describe('PGN export', () => {
+  it('writes the tag roster and wraps movetext at 80 columns', () => {
+    const board = replayGame(
+      'e2e4 e7e5 g1f3 b8c6 f1b5 a7a6 b5a4 g8f6 e1g1 f8e7 f1e1 b7b5 a4b3 d7d6 c2c3 e8g8 h2h3 c6a5 b3c2 c7c5 d2d4 d8c7',
+    );
+    const pgn = buildPgnDocument(
+      {
+        event: 'Chess Hub rated game',
+        site: 'https://chess.example/play/1',
+        date: new Date('2026-03-04T10:00:00Z'),
+        white: 'alice',
+        black: 'bob "the rook"',
+        result: null,
+        whiteElo: 1500,
+        blackElo: null,
+        timeControlSeconds: 300,
+        incrementSeconds: 3,
+        termination: null,
+      },
+      board.history(),
+    );
+
+    expect(pgn).toContain('[Date "2026.03.04"]');
+    expect(pgn).toContain('[Black "bob \\"the rook\\""]');
+    expect(pgn).toContain('[TimeControl "300+3"]');
+    expect(pgn).toContain('[Result "*"]');
+    expect(pgn).not.toContain('BlackElo');
+    const movetext = pgn.split('\n\n')[1] ?? '';
+    for (const line of movetext.trim().split('\n')) expect(line.length).toBeLessThanOrEqual(80);
+    expect(movetext.trim().endsWith('*')).toBe(true);
   });
 });

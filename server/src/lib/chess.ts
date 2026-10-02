@@ -13,7 +13,14 @@ export type Termination =
   | 'resignation'
   | 'timeout'
   | 'agreement'
-  | 'abandoned';
+  // A player never made their first move.
+  | 'abandoned'
+  // Ended before it counted: a participant aborted, or an admin stopped it.
+  | 'aborted'
+  // Open challenges that never became games.
+  | 'cancelled'
+  | 'declined'
+  | 'expired';
 
 export interface Outcome {
   /** "1-0" | "0-1" | "1/2-1/2" */
@@ -222,4 +229,87 @@ export function canMate(fen: string, color: 'white' | 'black'): boolean {
   }
 
   return false;
+}
+
+export interface PgnTags {
+  event: string;
+  site: string;
+  date: Date;
+  white: string;
+  black: string;
+  result: string | null;
+  whiteElo?: number | null;
+  blackElo?: number | null;
+  timeControlSeconds: number;
+  incrementSeconds: number;
+  termination?: string | null;
+}
+
+/** PGN's Termination tag vocabulary, from the game's own termination code. */
+function pgnTermination(termination: string | null | undefined): string | null {
+  switch (termination) {
+    case 'timeout':
+      return 'Time forfeit';
+    case 'abandoned':
+      return 'Abandoned';
+    case 'aborted':
+      return 'Unterminated';
+    case null:
+    case undefined:
+      return null;
+    default:
+      return 'Normal';
+  }
+}
+
+function escapeTag(value: string): string {
+  return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
+/**
+ * A complete, importable PGN document: the Seven Tag Roster plus the tags a
+ * chess GUI uses, then movetext wrapped at 80 columns as the standard asks.
+ */
+export function buildPgnDocument(tags: PgnTags, sanMoves: string[]): string {
+  const result = tags.result ?? '*';
+  const d = tags.date;
+  const date = `${d.getUTCFullYear()}.${String(d.getUTCMonth() + 1).padStart(2, '0')}.${String(
+    d.getUTCDate(),
+  ).padStart(2, '0')}`;
+
+  const header: Array<[string, string | number | null | undefined]> = [
+    ['Event', tags.event],
+    ['Site', tags.site],
+    ['Date', date],
+    ['Round', '-'],
+    ['White', tags.white],
+    ['Black', tags.black],
+    ['Result', result],
+    ['WhiteElo', tags.whiteElo],
+    ['BlackElo', tags.blackElo],
+    [
+      'TimeControl',
+      tags.timeControlSeconds > 0 ? `${tags.timeControlSeconds}+${tags.incrementSeconds}` : '-',
+    ],
+    ['Termination', pgnTermination(tags.termination)],
+  ];
+
+  const lines = header
+    .filter(([, value]) => value !== null && value !== undefined && value !== '')
+    .map(([name, value]) => `[${name} "${escapeTag(String(value))}"]`);
+
+  const tokens = [...buildPgn(sanMoves).split(' ').filter(Boolean), result];
+  const movetext: string[] = [];
+  let line = '';
+  for (const token of tokens) {
+    if (line && line.length + 1 + token.length > 80) {
+      movetext.push(line);
+      line = token;
+    } else {
+      line = line ? `${line} ${token}` : token;
+    }
+  }
+  if (line) movetext.push(line);
+
+  return `${lines.join('\n')}\n\n${movetext.join('\n')}\n`;
 }

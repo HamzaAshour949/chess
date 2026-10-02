@@ -12,7 +12,7 @@ moderate the community.
 
 | | |
 | --- | --- |
-| ![Home page with the featured-news carousel](docs/screenshots/home.webp) | ![Lobby: create a challenge or accept an open one](docs/screenshots/lobby.webp) |
+| ![Home page with the featured-news carousel and top players](docs/screenshots/home.webp) | ![Play: quick pairing by time control, and open challenges](docs/screenshots/lobby.webp) |
 | ![The same game from Black's side, in Arabic](docs/screenshots/game-ar.webp) | ![Admin: moderating matches](docs/screenshots/admin-matches.webp) |
 
 ---

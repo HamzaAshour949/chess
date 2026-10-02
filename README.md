@@ -7,6 +7,13 @@ admins curate the player and news catalogue and moderate the community.
 
 > **العربية:** [README.ar.md](README.ar.md)
 
+![A live rated game: board, clocks, chat and move list](docs/screenshots/game.webp)
+
+| | |
+| --- | --- |
+| ![Home page with the featured-news carousel](docs/screenshots/home.webp) | ![Lobby: create a challenge or accept an open one](docs/screenshots/lobby.webp) |
+| ![The same game from Black's side, in Arabic](docs/screenshots/game-ar.webp) | ![Admin: moderating matches](docs/screenshots/admin-matches.webp) |
+
 ---
 
 ## Contents

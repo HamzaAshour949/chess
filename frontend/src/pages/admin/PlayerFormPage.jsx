@@ -1,71 +1,59 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import api from "../../api";
+import api, { apiError } from "../../api";
+import { useToast } from "../../components/ui/Toaster";
+import ImageField from "./ImageField";
+import { useUnsavedWarning } from "./useUnsavedWarning";
+import { Button, ErrorBanner, Field, PageHeader, Panel, inputCls } from "./ui";
+
+// The titles the API accepts, strongest first.
+const TITLES = ["GM", "IM", "FM", "CM", "WGM", "WIM", "WFM", "WCM", "NM"];
+
+const EMPTY = {
+  name_en: "",
+  name_ar: "",
+  bio_en: "",
+  bio_ar: "",
+  country: "",
+  rating: "",
+  title: "",
+  image_url: "",
+  date_of_birth: "",
+  is_player_of_month: false,
+  is_tournament_winner: false,
+};
 
 export default function PlayerFormPage() {
   const { id } = useParams();
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const isEdit = Boolean(id);
 
-  const [form, setForm] = useState({
-    name_en: "",
-    name_ar: "",
-    bio_en: "",
-    bio_ar: "",
-    country: "",
-    rating: "",
-    title: "",
-    image_url: "",
-    date_of_birth: "",
-    is_player_of_month: false,
-    is_tournament_winner: false,
-  });
-  const [uploading, setUploading] = useState(false);
+  const [form, setForm] = useState(EMPTY);
+  const [loaded, setLoaded] = useState(!isEdit);
+  const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  useUnsavedWarning(dirty);
 
   useEffect(() => {
-    if (isEdit) {
-      api.get(`/players/${id}`).then((r) => {
-        setForm({
-          name_en: r.data.name_en || "",
-          name_ar: r.data.name_ar || "",
-          bio_en: r.data.bio_en || "",
-          bio_ar: r.data.bio_ar || "",
-          country: r.data.country || "",
-          rating: r.data.rating || "",
-          title: r.data.title || "",
-          image_url: r.data.image_url || "",
-          date_of_birth: r.data.date_of_birth || "",
-          is_player_of_month: r.data.is_player_of_month || false,
-          is_tournament_winner: r.data.is_tournament_winner || false,
-        });
-      });
-    }
-  }, [id, isEdit]);
+    if (!isEdit) return;
+    api
+      .get(`/players/${id}`)
+      .then((r) => {
+        setForm(Object.fromEntries(Object.keys(EMPTY).map((key) => [key, r.data[key] ?? EMPTY[key]])));
+        setLoaded(true);
+      })
+      .catch((e) => setError(apiError(e, t("load_failed"))));
+  }, [id, isEdit, t]);
 
-  const handleChange = (e) => {
-    const value = e.target.type === "checkbox" ? e.target.checked : e.target.value;
-    setForm({ ...form, [e.target.name]: value });
+  const update = (patch) => {
+    setForm((current) => ({ ...current, ...patch }));
+    setDirty(true);
   };
-
-  const handleImageUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    setUploading(true);
-    try {
-      const fd = new FormData();
-      fd.append("file", file);
-      const res = await api.post("/upload/image", fd);
-      setForm({ ...form, image_url: res.data.url });
-    } catch {
-      setError("Image upload failed");
-    } finally {
-      setUploading(false);
-    }
-  };
+  const handleChange = (e) => update({ [e.target.name]: e.target.type === "checkbox" ? e.target.checked : e.target.value });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -74,189 +62,101 @@ export default function PlayerFormPage() {
     try {
       const payload = {
         ...form,
-        rating: form.rating ? parseInt(form.rating) : null,
+        rating: form.rating === "" ? null : Number(form.rating),
         date_of_birth: form.date_of_birth || null,
       };
-      if (isEdit) {
-        await api.put(`/players/${id}`, payload);
-      } else {
-        await api.post("/players", payload);
-      }
+      if (isEdit) await api.put(`/players/${id}`, payload);
+      else await api.post("/players", payload);
+      setDirty(false);
+      toast({ tone: "success", title: t("saved") });
       navigate("/admin/players");
-    } catch {
-      setError("Failed to save player");
+    } catch (err) {
+      setError(apiError(err, t("action_failed")));
+      window.scrollTo({ top: 0, behavior: "smooth" });
     } finally {
       setSaving(false);
     }
   };
 
+  if (!loaded && !error) return <p className="text-gray-500">{t("loading")}</p>;
+
   return (
     <div className="max-w-3xl">
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">
-        {isEdit ? t("edit_player") : t("add_player")}
-      </h1>
-
-      <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-5">
-        {error && (
-          <div className="bg-red-50 text-red-700 px-4 py-2 rounded-lg text-sm">{error}</div>
+      <PageHeader title={isEdit ? t("edit_player") : t("add_player")}>
+        {isEdit && (
+          <Link to={`/players/${id}`} target="_blank" rel="noreferrer" className="text-sm text-gray-600 hover:text-gray-900">
+            {t("view")} ↗
+          </Link>
         )}
+      </PageHeader>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">{t("name_en")} *</label>
-            <input
-              name="name_en"
-              value={form.name_en}
-              onChange={handleChange}
-              required
-              className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
-            />
+      <form onSubmit={handleSubmit}>
+        <Panel className="p-6 space-y-5">
+          <ErrorBanner>{error}</ErrorBanner>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label={`${t("name_en")} *`} htmlFor="name_en">
+              <input id="name_en" name="name_en" value={form.name_en} onChange={handleChange} required maxLength={200} className={inputCls} />
+            </Field>
+            <Field label={`${t("name_ar")} *`} htmlFor="name_ar">
+              <input id="name_ar" name="name_ar" value={form.name_ar} onChange={handleChange} required maxLength={200} dir="rtl" className={inputCls} />
+            </Field>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">{t("name_ar")} *</label>
-            <input
-              name="name_ar"
-              value={form.name_ar}
-              onChange={handleChange}
-              required
-              dir="rtl"
-              className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
-            />
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <Field label={t("title")} htmlFor="title">
+              <select id="title" name="title" value={form.title} onChange={handleChange} className={inputCls}>
+                <option value="">—</option>
+                {TITLES.map((title) => (
+                  <option key={title} value={title}>
+                    {title}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label={t("rating")} htmlFor="rating">
+              <input id="rating" name="rating" type="number" min="0" max="4000" inputMode="numeric" value={form.rating} onChange={handleChange} className={inputCls} />
+            </Field>
+            <Field label={t("country")} htmlFor="country">
+              <input id="country" name="country" value={form.country} onChange={handleChange} maxLength={100} className={inputCls} />
+            </Field>
           </div>
-        </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">{t("title")}</label>
-            <select
-              name="title"
-              value={form.title}
-              onChange={handleChange}
-              className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
-            >
-              <option value="">—</option>
-              <option value="GM">GM</option>
-              <option value="IM">IM</option>
-              <option value="FM">FM</option>
-              <option value="CM">CM</option>
-              <option value="WGM">WGM</option>
-              <option value="WIM">WIM</option>
-              <option value="WFM">WFM</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">{t("rating")}</label>
-            <input
-              name="rating"
-              type="number"
-              value={form.rating}
-              onChange={handleChange}
-              className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">{t("country")}</label>
-            <input
-              name="country"
-              value={form.country}
-              onChange={handleChange}
-              className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
-            />
-          </div>
-        </div>
+          <Field label={t("date_of_birth")} htmlFor="date_of_birth">
+            <input id="date_of_birth" name="date_of_birth" type="date" value={form.date_of_birth} onChange={handleChange} className={`${inputCls} sm:w-56`} />
+          </Field>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">{t("date_of_birth")}</label>
-          <input
-            name="date_of_birth"
-            type="date"
-            value={form.date_of_birth}
-            onChange={handleChange}
-            className="w-full sm:w-48 px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
-          />
-        </div>
+          <Field label={t("bio_en")} htmlFor="bio_en">
+            <textarea id="bio_en" name="bio_en" value={form.bio_en} onChange={handleChange} rows={5} className={inputCls} />
+          </Field>
+          <Field label={t("bio_ar")} htmlFor="bio_ar">
+            <textarea id="bio_ar" name="bio_ar" value={form.bio_ar} onChange={handleChange} rows={5} dir="rtl" className={inputCls} />
+          </Field>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">{t("bio_en")}</label>
-          <textarea
-            name="bio_en"
-            value={form.bio_en}
-            onChange={handleChange}
-            rows={4}
-            className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
-          />
-        </div>
+          <ImageField value={form.image_url} onChange={(url) => update({ image_url: url })} onError={setError} />
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">{t("bio_ar")}</label>
-          <textarea
-            name="bio_ar"
-            value={form.bio_ar}
-            onChange={handleChange}
-            rows={4}
-            dir="rtl"
-            className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">{t("image")}</label>
-          <div className="flex items-center gap-4">
-            {form.image_url && (
-              <img src={form.image_url} alt="" className="w-20 h-20 object-cover rounded-lg" />
-            )}
-            <label className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg cursor-pointer text-sm font-medium text-gray-700 transition-colors">
-              {uploading ? t("loading") : t("upload_image")}
-              <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
-            </label>
-          </div>
-        </div>
-
-        <div className="border-t border-gray-200 pt-5">
-          <p className="text-sm font-medium text-gray-700 mb-3">{t("homepage_highlights")}</p>
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                name="is_player_of_month"
-                id="is_player_of_month"
-                checked={form.is_player_of_month}
-                onChange={handleChange}
-                className="w-4 h-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500"
-              />
-              <label htmlFor="is_player_of_month" className="text-sm text-gray-700">🏆 {t("player_of_month")}</label>
+          <div className="border-t border-gray-200 pt-5">
+            <p className="text-sm font-medium text-gray-700 mb-3">{t("homepage_highlights")}</p>
+            <div className="flex flex-col sm:flex-row gap-4">
+              <label className="flex items-center gap-2 text-sm text-gray-700">
+                <input type="checkbox" name="is_player_of_month" checked={form.is_player_of_month} onChange={handleChange} className="w-4 h-4 accent-amber-600" />
+                🏆 {t("player_of_month")}
+              </label>
+              <label className="flex items-center gap-2 text-sm text-gray-700">
+                <input type="checkbox" name="is_tournament_winner" checked={form.is_tournament_winner} onChange={handleChange} className="w-4 h-4 accent-amber-600" />
+                👑 {t("tournament_winner")}
+              </label>
             </div>
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                name="is_tournament_winner"
-                id="is_tournament_winner"
-                checked={form.is_tournament_winner}
-                onChange={handleChange}
-                className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-              />
-              <label htmlFor="is_tournament_winner" className="text-sm text-gray-700">👑 {t("tournament_winner")}</label>
-            </div>
+            <p className="text-xs text-gray-500 mt-2">{t("highlight_hint")}</p>
           </div>
-          <p className="text-xs text-gray-400 mt-2">{t("highlight_hint")}</p>
-        </div>
 
-        <div className="flex gap-3 pt-2">
-          <button
-            type="submit"
-            disabled={saving}
-            className="px-6 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
-          >
-            {saving ? t("loading") : t("save")}
-          </button>
-          <button
-            type="button"
-            onClick={() => navigate("/admin/players")}
-            className="px-6 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors"
-          >
-            {t("cancel")}
-          </button>
-        </div>
+          <div className="flex gap-3 pt-2">
+            <Button type="submit" variant="primary" disabled={saving}>
+              {saving ? t("saving") : t("save")}
+            </Button>
+            <Button onClick={() => navigate("/admin/players")}>{t("cancel")}</Button>
+          </div>
+        </Panel>
       </form>
     </div>
   );

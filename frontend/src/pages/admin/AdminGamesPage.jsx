@@ -1,128 +1,177 @@
-import { useEffect, useState, useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import api from "../../api";
+import api, { apiError } from "../../api";
+import { useConfirm } from "../../components/ui/Dialog";
+import { useToast } from "../../components/ui/Toaster";
+import { formatDateTime, nameOf, tcLabel, terminationKey } from "../../lib/format";
+import { Button, PageHeader, Pager, Pill, Table, inputCls } from "./ui";
+
+const FILTERS = ["all", "open", "active", "finished", "voided"];
+
+function StatusPill({ game, t }) {
+  if (game.voided) return <Pill tone="red">{t("voided")}</Pill>;
+  if (game.status === "active") return <Pill tone="amber">● {t("live_now")}</Pill>;
+  if (game.status === "open") return <Pill tone="blue">{t("open")}</Pill>;
+  if (game.status === "aborted") return <Pill tone="gray">{t(terminationKey(game) ?? "term_aborted")}</Pill>;
+  return (
+    <Pill tone="green">
+      {game.result} · {t(terminationKey(game) ?? "finished")}
+    </Pill>
+  );
+}
 
 export default function AdminGamesPage() {
-  const { t } = useTranslation();
-  const [data, setData] = useState({ games: [], total: 0, page: 1, per_page: 20 });
-  const [filters, setFilters] = useState({ status: "all", search: "", page: 1 });
+  const { t, i18n } = useTranslation();
+  const confirm = useConfirm();
+  const { toast } = useToast();
+  const [data, setData] = useState({ games: [], total: 0, page: 1, pages: 1 });
+  const [status, setStatus] = useState("all");
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(null);
-  const [error, setError] = useState("");
 
   const load = useCallback(() => {
-    const p = new URLSearchParams();
-    if (filters.status !== "all") p.set("status", filters.status);
-    if (filters.search) p.set("search", filters.search);
-    p.set("page", filters.page);
-    p.set("per_page", "20");
+    const p = new URLSearchParams({ page: String(page), per_page: "25" });
+    if (status !== "all") p.set("status", status);
+    if (search.trim()) p.set("search", search.trim());
+    setLoading(true);
     api
-      .get(`/games/admin/games?${p.toString()}`)
-      .then((r) => setData(r.data || { games: [] }))
-      .catch(() => setData({ games: [], total: 0 }));
-  }, [filters]);
+      .get(`/games/admin/games?${p}`)
+      .then((r) => setData(r.data))
+      .catch((e) => toast({ tone: "error", title: apiError(e, t("load_failed")) }))
+      .finally(() => setLoading(false));
+  }, [status, search, page, toast, t]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    const id = setTimeout(load, search ? 250 : 0);
+    return () => clearTimeout(id);
+  }, [load, search]);
 
-  const act = async (id, path, body, confirmMsg) => {
-    if (confirmMsg && !confirm(confirmMsg)) return;
+  const act = async (id, path, body) => {
     setBusy(id);
     try {
-      await api.post(`/games/admin/games/${id}/${path}`, body || {});
+      await api.post(`/games/admin/games/${id}/${path}`, body ?? {});
       load();
     } catch (err) {
-      setError(err.response?.data?.error || "Failed");
-      setTimeout(() => setError(""), 3000);
-    } finally { setBusy(null); }
+      toast({ tone: "error", title: apiError(err, t("action_failed")) });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const abort = async (game) => {
+    const reason = await confirm({
+      title: t("confirm_abort"),
+      body: t("admin_abort_body"),
+      confirmLabel: t("abort"),
+      tone: "danger",
+      input: { label: t("reason_optional") },
+    });
+    if (reason !== null) act(game.id, "abort", { reason });
+  };
+
+  const voidGame = async (game) => {
+    const reason = await confirm({
+      title: t("void_title"),
+      body: t("void_body"),
+      confirmLabel: t("void"),
+      tone: "danger",
+      input: { label: t("void_reason_prompt"), required: true },
+    });
+    if (reason) act(game.id, "void", { reason });
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-extrabold text-white">{t("admin_matches")}</h1>
-        <p className="text-slate-400 text-sm mt-1">{t("admin_matches_intro")}</p>
-      </div>
-
-      <div className="surface p-3 flex flex-wrap gap-2 items-center text-sm">
-        <select value={filters.status} onChange={(e) => setFilters({ ...filters, status: e.target.value, page: 1 })}
-          className="bg-white/5 border border-white/10 rounded px-2 py-1.5 text-slate-200">
-          <option value="all">{t("all")}</option>
-          <option value="open">{t("open")}</option>
-          <option value="active">{t("active")}</option>
-          <option value="finished">{t("finished")}</option>
-          <option value="voided">{t("voided")}</option>
+    <div>
+      <PageHeader title={t("admin_matches")} subtitle={t("admin_matches_intro")}>
+        <input
+          type="search"
+          placeholder={t("search_username")}
+          aria-label={t("search_username")}
+          value={search}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setPage(1);
+          }}
+          className={`${inputCls} sm:w-60`}
+        />
+        <select
+          aria-label={t("status")}
+          value={status}
+          onChange={(e) => {
+            setStatus(e.target.value);
+            setPage(1);
+          }}
+          className={`${inputCls} w-auto`}
+        >
+          {FILTERS.map((f) => (
+            <option key={f} value={f}>
+              {t(f)}
+            </option>
+          ))}
         </select>
-        <input placeholder={t("search_username")} value={filters.search}
-          onChange={(e) => setFilters({ ...filters, search: e.target.value, page: 1 })}
-          className="bg-white/5 border border-white/10 rounded px-2 py-1.5 text-slate-200 flex-1 min-w-[200px]" />
-        <span className="text-xs text-slate-500">{data.total} total</span>
-      </div>
+      </PageHeader>
 
-      {error && <div className="chip chip-red">{error}</div>}
-
-      <div className="surface-elev overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-white/5">
-            <tr className="text-start">
-              <th className="px-3 py-2 text-start text-xs uppercase text-slate-400">ID</th>
-              <th className="px-3 py-2 text-start text-xs uppercase text-slate-400">White</th>
-              <th className="px-3 py-2 text-start text-xs uppercase text-slate-400">Black</th>
-              <th className="px-3 py-2 text-start text-xs uppercase text-slate-400">{t("status")}</th>
-              <th className="px-3 py-2 text-start text-xs uppercase text-slate-400">TC</th>
-              <th className="px-3 py-2 text-start text-xs uppercase text-slate-400">Plies</th>
-              <th className="px-3 py-2 text-end text-xs uppercase text-slate-400">{t("actions")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(data.games || []).map((g) => (
-              <tr key={g.id} className="border-t border-white/5 hover:bg-white/5">
-                <td className="px-3 py-2 text-slate-400 font-mono text-xs">
-                  <Link to={`/play/${g.id}`} className="text-amber-400 hover:underline">#{g.id}</Link>
-                </td>
-                <td className="px-3 py-2 text-white">{g.white_user?.display_name || "—"}</td>
-                <td className="px-3 py-2 text-white">{g.black_user?.display_name || "—"}</td>
-                <td className="px-3 py-2">
-                  <span className={`chip ${g.voided ? "chip-red" : g.status === "active" ? "chip-gold" : "chip-slate"}`}>
-                    {g.voided ? t("voided") : g.status}
-                  </span>
-                </td>
-                <td className="px-3 py-2 text-slate-300 text-xs">{g.time_control_seconds || "∞"}{g.increment_seconds ? `+${g.increment_seconds}` : ""}</td>
-                <td className="px-3 py-2 text-slate-400 text-xs">{g.move_count}</td>
-                <td className="px-3 py-2 text-end space-x-1">
-                  {g.status === "active" && (
-                    <button disabled={busy === g.id}
-                      onClick={() => act(g.id, "abort", null, t("confirm_abort"))}
-                      className="btn btn-ghost text-xs">{t("abort")}</button>
-                  )}
-                  {(g.status === "white_wins" || g.status === "black_wins" || g.status === "draw") && !g.voided && (
-                    <button disabled={busy === g.id}
-                      onClick={() => {
-                        const reason = prompt(t("void_reason_prompt"));
-                        if (reason !== null) act(g.id, "void", { reason }, null);
-                      }}
-                      className="btn btn-ghost text-xs">{t("void")}</button>
-                  )}
-                  <button disabled={busy === g.id}
-                    onClick={() => act(g.id, "chat-toggle", null, null)}
-                    className="btn btn-ghost text-xs">
+      <Table
+        columns={[
+          { label: t("game") },
+          { label: t("color_white") },
+          { label: t("color_black") },
+          { label: t("status") },
+          { label: t("time_control") },
+          { label: t("moves") },
+          { label: t("actions"), end: true },
+        ]}
+        loading={loading && data.games.length === 0}
+        empty={!loading && data.games.length === 0 ? t("no_results") : null}
+      >
+        {data.games.map((g) => (
+          <tr key={g.id} className="hover:bg-gray-50">
+            <td className="px-4 py-3 whitespace-nowrap">
+              <Link to={`/play/${g.id}`} className="text-amber-700 hover:underline font-mono text-xs" target="_blank" rel="noreferrer">
+                {g.id.slice(-8)} ↗
+              </Link>
+              <div className="text-xs text-gray-400">{formatDateTime(g.created_at, i18n.language)}</div>
+            </td>
+            <td className="px-4 py-3 text-gray-900 whitespace-nowrap">{g.white_user ? nameOf(g.white_user, t) : "—"}</td>
+            <td className="px-4 py-3 text-gray-900 whitespace-nowrap">{g.black_user ? nameOf(g.black_user, t) : "—"}</td>
+            <td className="px-4 py-3">
+              <div className="flex flex-wrap gap-1">
+                <StatusPill game={g} t={t} />
+                {g.chat_disabled && <Pill tone="gray">{t("chat_off")}</Pill>}
+              </div>
+              {g.void_reason && <div className="text-[11px] text-gray-500 mt-1 italic max-w-[220px]">“{g.void_reason}”</div>}
+            </td>
+            <td className="px-4 py-3 text-gray-700 text-xs whitespace-nowrap">
+              {tcLabel(g.time_control_seconds, g.increment_seconds, t)} · {g.rated ? t("rated") : t("casual")}
+            </td>
+            <td className="px-4 py-3 text-gray-600 text-xs tabular-nums">{g.move_count}</td>
+            <td className="px-4 py-3">
+              <div className="flex flex-wrap gap-1.5 justify-end">
+                {(g.status === "active" || g.status === "open") && (
+                  <Button size="sm" variant="danger" disabled={busy === g.id} onClick={() => abort(g)}>
+                    {t("abort")}
+                  </Button>
+                )}
+                {["white_wins", "black_wins", "draw"].includes(g.status) && !g.voided && (
+                  <Button size="sm" variant="danger" disabled={busy === g.id} onClick={() => voidGame(g)}>
+                    {t("void")}
+                  </Button>
+                )}
+                {g.status !== "open" && (
+                  <Button size="sm" disabled={busy === g.id} onClick={() => act(g.id, "chat-toggle")}>
                     {g.chat_disabled ? t("enable_chat") : t("disable_chat")}
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                  </Button>
+                )}
+              </div>
+            </td>
+          </tr>
+        ))}
+      </Table>
 
-      <div className="flex items-center justify-between">
-        <button disabled={data.page <= 1}
-          onClick={() => setFilters({ ...filters, page: data.page - 1 })}
-          className="btn btn-ghost">←</button>
-        <span className="text-sm text-slate-400">page {data.page} / {Math.max(1, Math.ceil(data.total / data.per_page))}</span>
-        <button disabled={data.page * data.per_page >= data.total}
-          onClick={() => setFilters({ ...filters, page: data.page + 1 })}
-          className="btn btn-ghost">→</button>
-      </div>
+      <Pager page={data.page ?? page} pages={data.pages} total={data.total} onChange={setPage} />
     </div>
   );
 }

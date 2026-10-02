@@ -1,115 +1,116 @@
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import api, { apiError } from "../../api";
 import { useLanguage } from "../../context/LanguageContext";
-import api from "../../api";
+import { useConfirm } from "../../components/ui/Dialog";
+import { useToast } from "../../components/ui/Toaster";
+import { formatDate } from "../../lib/format";
+import { useFetch } from "../../hooks/useFetch";
+import { Button, PageHeader, Pill, Table, inputCls } from "./ui";
+
+const FILTERS = ["pending", "approved", "rejected", "all"];
 
 export default function AdminLinkRequestsPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { lang } = useLanguage();
+  const confirm = useConfirm();
+  const { toast } = useToast();
   const [filter, setFilter] = useState("pending");
-  const [items, setItems] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(null);
-  const [error, setError] = useState("");
+  const { data, loading, error, reload: load } = useFetch(`/links/admin/requests?status=${filter}&lang=${lang}`);
+  const items = data ?? [];
 
-  const load = useCallback(() => {
-    setLoading(true);
-    api.get(`/links/admin/requests?status=${filter}&lang=${lang}`)
-      .then((r) => setItems(r.data || []))
-      .catch(() => setItems([]))
-      .finally(() => setLoading(false));
-  }, [filter, lang]);
-
-  useEffect(() => { load(); }, [load]);
-
-  const review = async (id, action) => {
-    const note = prompt(t("admin_note") + " (optional):") || "";
-    setBusy(id); setError("");
+  const review = async (request, action) => {
+    const approving = action === "approve";
+    const note = await confirm({
+      title: t(approving ? "approve_link_title" : "reject_link_title", {
+        user: `@${request.user?.username}`,
+        player: request.player?.name,
+      }),
+      body: t(approving ? "approve_link_body" : "reject_link_body"),
+      confirmLabel: t(approving ? "approve" : "reject"),
+      tone: approving ? undefined : "danger",
+      input: { label: t("admin_note_optional"), multiline: true },
+    });
+    if (note === null) return;
+    setBusy(request.id);
     try {
-      await api.post(`/links/admin/requests/${id}/${action}`, { admin_note: note });
+      await api.post(`/links/admin/requests/${request.id}/${action}`, { admin_note: note });
+      toast({ tone: "success", title: t(approving ? "link_approved_admin" : "link_rejected_admin") });
       load();
-    } catch (err) { setError(err.response?.data?.error || "Failed"); }
-    finally { setBusy(null); }
+    } catch (err) {
+      toast({ tone: "error", title: apiError(err, t("action_failed")) });
+    } finally {
+      setBusy(null);
+    }
   };
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
-        <h1 className="text-2xl font-bold text-gray-800">{t("manage_link_requests")}</h1>
-        <select value={filter} onChange={(e) => setFilter(e.target.value)}
-          className="border border-gray-300 rounded-lg px-3 py-2 text-sm">
-          <option value="all">{t("all")}</option>
-          <option value="pending">{t("pending")}</option>
-          <option value="approved">{t("approved")}</option>
-          <option value="rejected">{t("rejected")}</option>
+      <PageHeader title={t("manage_link_requests")} subtitle={t("manage_link_requests_sub")}>
+        <select aria-label={t("status")} value={filter} onChange={(e) => setFilter(e.target.value)} className={`${inputCls} w-auto`}>
+          {FILTERS.map((f) => (
+            <option key={f} value={f}>
+              {t(f)}
+            </option>
+          ))}
         </select>
-      </div>
+      </PageHeader>
 
-      {error && <div className="bg-red-100 text-red-700 rounded-lg px-4 py-2 mb-4 text-sm">{error}</div>}
-
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        {loading ? (
-          <div className="p-12 text-center text-gray-400">{t("loading")}</div>
-        ) : items.length === 0 ? (
-          <div className="p-12 text-center text-gray-400">{t("no_link_requests")}</div>
-        ) : (
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-xs uppercase tracking-wider text-gray-500">
-              <tr>
-                <th className="px-4 py-3 text-start">{t("user")}</th>
-                <th className="px-4 py-3 text-start">{t("requested_player")}</th>
-                <th className="px-4 py-3 text-start">{t("evidence")}</th>
-                <th className="px-4 py-3 text-start">{t("review_status")}</th>
-                <th className="px-4 py-3 text-end" />
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((r) => (
-                <tr key={r.id} className="border-t border-gray-100 align-top">
-                  <td className="px-4 py-3">
-                    <div className="font-medium text-gray-800">{r.user?.display_name}</div>
-                    <div className="text-xs text-gray-500">@{r.user?.username}</div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="font-medium text-gray-800 flex items-center gap-2">
-                      {r.player?.title && <span className="text-xs px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded">{r.player.title}</span>}
-                      {r.player?.name}
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      {r.player?.country} · {r.player?.rating || "—"}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-gray-600 text-xs max-w-sm">
-                    {r.message || <span className="text-gray-400 italic">{t("evidence")}: —</span>}
-                    {r.admin_note && <div className="mt-1 italic text-gray-500">"{r.admin_note}"</div>}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={`text-xs font-bold px-2 py-1 rounded ${
-                      r.status === "pending" ? "bg-amber-100 text-amber-800" :
-                      r.status === "approved" ? "bg-emerald-100 text-emerald-800" :
-                      "bg-rose-100 text-rose-800"
-                    }`}>{t(r.status)}</span>
-                  </td>
-                  <td className="px-4 py-3 text-end whitespace-nowrap">
-                    {r.status === "pending" && (
-                      <div className="inline-flex gap-2">
-                        <button disabled={busy === r.id} onClick={() => review(r.id, "approve")}
-                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded">
-                          {t("approve")}
-                        </button>
-                        <button disabled={busy === r.id} onClick={() => review(r.id, "reject")}
-                          className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold rounded">
-                          {t("reject")}
-                        </button>
-                      </div>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+      <Table
+        columns={[
+          { label: t("user") },
+          { label: t("requested_player") },
+          { label: t("evidence") },
+          { label: t("status") },
+          { label: t("actions"), end: true },
+        ]}
+        loading={loading}
+        empty={!loading && items.length === 0 ? (error ? apiError(error, t("load_failed")) : t("no_link_requests")) : null}
+      >
+        {items.map((r) => (
+          <tr key={r.id} className="align-top hover:bg-gray-50">
+            <td className="px-4 py-3">
+              <Link to={`/u/${r.user?.username}`} className="font-medium text-gray-900 hover:text-amber-700">
+                {r.user?.display_name || r.user?.username}
+              </Link>
+              <div className="text-xs text-gray-500">
+                @{r.user?.username} · {r.user?.online_rating}
+              </div>
+              <div className="text-xs text-gray-400">{formatDate(r.created_at, i18n.language)}</div>
+            </td>
+            <td className="px-4 py-3">
+              <Link to={`/players/${r.player_id}`} className="font-medium text-gray-900 flex items-center gap-2 hover:text-amber-700">
+                {r.player?.title && <Pill tone="amber">{r.player.title}</Pill>}
+                {r.player?.name}
+              </Link>
+              <div className="text-xs text-gray-500">
+                {r.player?.country || "—"} · {r.player?.rating || "—"}
+              </div>
+            </td>
+            <td className="px-4 py-3 text-gray-700 text-sm max-w-sm">
+              {r.message ? <p className="whitespace-pre-wrap break-words">{r.message}</p> : <span className="text-gray-400 italic">{t("no_evidence")}</span>}
+              {r.admin_note && <p className="mt-1 text-xs italic text-gray-500">{t("reviewer_note")}: “{r.admin_note}”</p>}
+            </td>
+            <td className="px-4 py-3">
+              <Pill tone={r.status === "pending" ? "amber" : r.status === "approved" ? "green" : "red"}>{t(r.status)}</Pill>
+            </td>
+            <td className="px-4 py-3">
+              {r.status === "pending" && (
+                <div className="flex gap-1.5 justify-end">
+                  <Button size="sm" variant="success" disabled={busy === r.id} onClick={() => review(r, "approve")}>
+                    {t("approve")}
+                  </Button>
+                  <Button size="sm" variant="danger" disabled={busy === r.id} onClick={() => review(r, "reject")}>
+                    {t("reject")}
+                  </Button>
+                </div>
+              )}
+            </td>
+          </tr>
+        ))}
+      </Table>
     </div>
   );
 }

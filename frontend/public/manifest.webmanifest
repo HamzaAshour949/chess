@@ -1,0 +1,10 @@
+{
+  "name": "Chess Hub",
+  "short_name": "Chess Hub",
+  "description": "Play live rated chess, follow the world's top players and the latest news.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#07090f",
+  "theme_color": "#07090f",
+  "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

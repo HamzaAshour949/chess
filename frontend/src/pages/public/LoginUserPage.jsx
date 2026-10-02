@@ -1,76 +1,111 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { apiError } from "../../api";
 import { useUserAuth } from "../../context/UserAuthContext";
 import { useLanguage } from "../../context/LanguageContext";
+import { useDocumentTitle } from "../../hooks/useDocumentTitle";
+import AuthShell, { FormError } from "../../components/AuthShell";
+import PasswordInput from "../../components/ui/PasswordInput";
+
+/** Only same-site paths are followed after sign-in; anything else goes to /play. */
+function safeReturn(from) {
+  return typeof from === "string" && from.startsWith("/") && !from.startsWith("//") ? from : "/play";
+}
 
 export default function LoginUserPage() {
   const { t } = useTranslation();
   const { lang } = useLanguage();
-  const { login } = useUserAuth();
+  const { user, login } = useUserAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const returnTo = safeReturn(location.state?.from);
+  useDocumentTitle(t("sign_in"));
 
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  const submit = async (e) => {
-    e.preventDefault();
-    setError(""); setBusy(true);
+  if (user) return <Navigate to={returnTo} replace />;
+
+  const submit = async (event) => {
+    event.preventDefault();
+    setError("");
+    setBusy(true);
     try {
-      await login(identifier, password, lang);
-      navigate("/play");
+      await login(identifier.trim(), password, lang);
+      navigate(returnTo, { replace: true });
     } catch (err) {
       const data = err.response?.data;
-      if (data?.needs_verification) {
-        navigate(`/verify?email=${encodeURIComponent(data.email)}`);
+      // The server says why with a machine-readable code; the details sit
+      // under `details`, not at the top level.
+      if (data?.code === "email_unverified") {
+        navigate(`/verify?email=${encodeURIComponent(data.details?.email ?? identifier)}`, {
+          state: { from: returnTo, resent: true },
+        });
         return;
       }
-      if (data?.is_banned) {
-        setError(`${t("account_suspended")}${data.ban_reason ? ` — ${data.ban_reason}` : ""}`);
+      if (data?.code === "account_banned") {
+        const reason = data.details?.ban_reason;
+        setError(`${t("account_suspended")}${reason ? ` — ${reason}` : ""}`);
         return;
       }
-      setError(data?.error || "Login failed");
-    } finally { setBusy(false); }
+      setError(err.response?.status === 401 ? t("invalid_credentials") : apiError(err, t("action_failed")));
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
-    <div className="flex items-center justify-center px-4 py-10 relative overflow-hidden">
-      <div className="absolute inset-0 bg-grid opacity-30 pointer-events-none" />
-      <div className="absolute -top-20 left-1/2 -translate-x-1/2 w-[640px] h-[640px] rounded-full bg-amber-500/10 blur-3xl pointer-events-none" />
-      <div className="relative w-full max-w-md">
-        <div className="surface-elev p-8 animate-fade-up">
-          <div className="text-center mb-8">
-            <div className="inline-flex w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-700 items-center justify-center text-2xl text-slate-900 font-black mb-4 shadow-lg shadow-amber-500/30">♔</div>
-            <h1 className="text-2xl font-extrabold text-white">{t("login_title")}</h1>
-            <p className="text-slate-400 text-sm mt-1">{t("login_subtitle")}</p>
-          </div>
-
-          <form onSubmit={submit} className="space-y-3.5">
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">{t("identifier")}</label>
-              <input className="input" autoComplete="username" required
-                     value={identifier} onChange={(e) => setIdentifier(e.target.value)} />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">{t("password")}</label>
-              <input type="password" className="input" autoComplete="current-password" required
-                     value={password} onChange={(e) => setPassword(e.target.value)} />
-            </div>
-
-            {error && <div className="chip chip-red w-full justify-center py-2">{error}</div>}
-
-            <button type="submit" disabled={busy} className="btn btn-primary btn-lg w-full">
-              {busy ? t("signing_in") : t("sign_in")}
-            </button>
-          </form>
-
-          <div className="text-center mt-6 text-sm text-slate-400">
-            {t("no_account")} <Link to="/register" className="text-amber-400 hover:text-amber-300 font-semibold">{t("sign_up")}</Link>
-          </div>
+    <AuthShell
+      title={t("login_title")}
+      subtitle={t("login_subtitle")}
+      footer={
+        <>
+          {t("no_account")}{" "}
+          <Link to="/register" state={location.state} className="text-amber-400 hover:text-amber-300 font-semibold">
+            {t("sign_up")}
+          </Link>
+        </>
+      }
+    >
+      <form onSubmit={submit} className="space-y-4" noValidate>
+        <div>
+          <label htmlFor="identifier" className="block text-xs font-semibold text-slate-300 mb-1.5">
+            {t("identifier")}
+          </label>
+          <input
+            id="identifier"
+            className="input"
+            autoComplete="username"
+            autoCapitalize="none"
+            spellCheck={false}
+            required
+            autoFocus
+            dir="ltr"
+            value={identifier}
+            onChange={(e) => setIdentifier(e.target.value)}
+          />
         </div>
-      </div>
-    </div>
+        <div>
+          <div className="flex items-center justify-between mb-1.5">
+            <label htmlFor="password" className="block text-xs font-semibold text-slate-300">
+              {t("password")}
+            </label>
+            <Link to="/forgot-password" state={{ email: identifier.includes("@") ? identifier : "" }} className="text-xs text-amber-400 hover:text-amber-300">
+              {t("forgot_password")}
+            </Link>
+          </div>
+          <PasswordInput id="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+        </div>
+
+        <FormError>{error}</FormError>
+
+        <button type="submit" disabled={busy || !identifier.trim() || !password} className="btn btn-primary btn-lg w-full">
+          {busy ? t("signing_in") : t("sign_in")}
+        </button>
+      </form>
+    </AuthShell>
   );
 }

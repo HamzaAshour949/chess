@@ -1,145 +1,118 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import api from "../../api";
-import Pagination from "../../components/Pagination";
+import api, { apiError } from "../../api";
+import { useConfirm } from "../../components/ui/Dialog";
+import { useToast } from "../../components/ui/Toaster";
+import { PageHeader, Pager, Pill, Table, inputCls } from "./ui";
 
 export default function AdminPlayersPage() {
   const { t } = useTranslation();
-  const [players, setPlayers] = useState([]);
+  const confirm = useConfirm();
+  const { toast } = useToast();
+  const [data, setData] = useState({ players: [], pages: 1, total: 0 });
   const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
   const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true);
 
-  const fetchPlayers = () => {
-    api.get(`/players?page=${page}&per_page=10&search=${search}`).then((r) => {
-      setPlayers(r.data.players);
-      setTotalPages(r.data.pages);
+  const load = useCallback(() => {
+    setLoading(true);
+    api
+      .get(`/players?page=${page}&per_page=15&search=${encodeURIComponent(search.trim())}`)
+      .then((r) => setData(r.data))
+      .catch((e) => toast({ tone: "error", title: apiError(e, t("load_failed")) }))
+      .finally(() => setLoading(false));
+  }, [page, search, toast, t]);
+
+  useEffect(() => {
+    const id = setTimeout(load, search ? 250 : 0);
+    return () => clearTimeout(id);
+  }, [load, search]);
+
+  const handleDelete = async (player) => {
+    const ok = await confirm({
+      title: t("delete_player_title", { name: player.name_en }),
+      body: t("delete_player_body"),
+      confirmLabel: t("delete"),
+      tone: "danger",
     });
-  };
-
-  useEffect(fetchPlayers, [page, search]);
-
-  const handleDelete = async (id) => {
-    if (!window.confirm(t("confirm_delete"))) return;
-    await api.delete(`/players/${id}`);
-    fetchPlayers();
+    if (!ok) return;
+    try {
+      await api.delete(`/players/${player.id}`);
+      toast({ tone: "success", title: t("deleted_ok") });
+      load();
+    } catch (e) {
+      toast({ tone: "error", title: apiError(e, t("action_failed")) });
+    }
   };
 
   return (
     <div>
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">{t("manage_players")}</h1>
-        <Link
-          to="/admin/players/new"
-          className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-medium transition-colors text-sm"
-        >
-          + {t("add_player")}
-        </Link>
-      </div>
-
-      <div className="mb-4">
+      <PageHeader title={t("manage_players")}>
         <input
-          type="text"
+          type="search"
           placeholder={t("search")}
+          aria-label={t("search")}
           value={search}
           onChange={(e) => {
             setSearch(e.target.value);
             setPage(1);
           }}
-          className="w-full sm:w-72 px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
+          className={`${inputCls} sm:w-64`}
         />
-      </div>
+        <Link to="/admin/players/new" className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-semibold text-sm whitespace-nowrap">
+          + {t("add_player")}
+        </Link>
+      </PageHeader>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        {/* Desktop table */}
-        <div className="hidden md:block overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-100">
-              <tr>
-                <th className="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase">{t("name_en")}</th>
-                <th className="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase">{t("name_ar")}</th>
-                <th className="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase">{t("title")}</th>
-                <th className="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase">{t("rating")}</th>
-                <th className="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase">{t("country")}</th>
-                <th className="px-6 py-3 text-end text-xs font-medium text-gray-500 uppercase"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {players.map((p) => (
-                <tr key={p.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                    {p.name_en}
-                    {p.is_player_of_month && <span className="ml-2 text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">🏆</span>}
-                    {p.is_tournament_winner && <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">👑</span>}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-700">{p.name_ar}</td>
-                  <td className="px-6 py-4 text-sm">
-                    {p.title && (
-                      <span className="bg-amber-100 text-amber-800 px-2 py-0.5 rounded text-xs font-bold">
-                        {p.title}
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-700">{p.rating || "—"}</td>
-                  <td className="px-6 py-4 text-sm text-gray-700">{p.country || "—"}</td>
-                  <td className="px-6 py-4 text-end space-x-2">
-                    <Link
-                      to={`/admin/players/${p.id}/edit`}
-                      className="text-amber-600 hover:text-amber-800 text-sm font-medium"
-                    >
-                      {t("edit_player")}
-                    </Link>
-                    <button
-                      onClick={() => handleDelete(p.id)}
-                      className="text-red-600 hover:text-red-800 text-sm font-medium"
-                    >
-                      {t("delete_player")}
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Mobile cards */}
-        <div className="md:hidden divide-y divide-gray-100">
-          {players.map((p) => (
-            <div key={p.id} className="p-4 space-y-2">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium text-gray-900">{p.name_en}</p>
-                  <p className="text-sm text-gray-500">{p.name_ar}</p>
-                </div>
-                {p.title && (
-                  <span className="bg-amber-100 text-amber-800 px-2 py-0.5 rounded text-xs font-bold">
-                    {p.title}
-                  </span>
+      <Table
+        columns={[
+          { label: t("name_en") },
+          { label: t("name_ar") },
+          { label: t("title") },
+          { label: t("rating") },
+          { label: t("country") },
+          { label: t("actions"), end: true },
+        ]}
+        loading={loading && data.players.length === 0}
+        empty={!loading && data.players.length === 0 ? t("no_results") : null}
+      >
+        {data.players.map((p) => (
+          <tr key={p.id} className="hover:bg-gray-50">
+            <td className="px-4 py-3 font-medium text-gray-900">
+              <div className="flex items-center gap-2 flex-wrap">
+                {p.image_url ? (
+                  <img src={p.image_url} alt="" className="w-8 h-8 rounded-full object-cover" loading="lazy" />
+                ) : (
+                  <span className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-400">♟</span>
                 )}
+                {p.name_en}
+                {p.is_player_of_month && <Pill tone="amber">🏆 {t("player_of_month")}</Pill>}
+                {p.is_tournament_winner && <Pill tone="blue">👑 {t("tournament_winner")}</Pill>}
               </div>
-              <div className="flex items-center gap-4 text-sm text-gray-500">
-                {p.rating && <span>{t("rating")}: {p.rating}</span>}
-                {p.country && <span>{p.country}</span>}
-              </div>
-              <div className="flex gap-4 pt-1">
-                <Link to={`/admin/players/${p.id}/edit`} className="text-amber-600 text-sm font-medium">
-                  {t("edit_player")}
-                </Link>
-                <button onClick={() => handleDelete(p.id)} className="text-red-600 text-sm font-medium">
-                  {t("delete_player")}
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
+            </td>
+            <td className="px-4 py-3 text-gray-700" dir="rtl">
+              {p.name_ar}
+            </td>
+            <td className="px-4 py-3">{p.title ? <Pill tone="amber">{p.title}</Pill> : <span className="text-gray-400">—</span>}</td>
+            <td className="px-4 py-3 text-gray-700 tabular-nums">{p.rating || "—"}</td>
+            <td className="px-4 py-3 text-gray-700">{p.country || "—"}</td>
+            <td className="px-4 py-3 text-end whitespace-nowrap">
+              <Link to={`/players/${p.id}`} target="_blank" rel="noreferrer" className="text-gray-500 hover:text-gray-800 text-sm font-medium me-3">
+                {t("view")} ↗
+              </Link>
+              <Link to={`/admin/players/${p.id}/edit`} className="text-amber-700 hover:text-amber-900 text-sm font-medium me-3">
+                {t("edit")}
+              </Link>
+              <button type="button" onClick={() => handleDelete(p)} className="text-rose-600 hover:text-rose-800 text-sm font-medium">
+                {t("delete")}
+              </button>
+            </td>
+          </tr>
+        ))}
+      </Table>
 
-        {players.length === 0 && (
-          <p className="text-center text-gray-500 py-8">{t("no_results")}</p>
-        )}
-      </div>
-
-      <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />
+      <Pager page={page} pages={data.pages} total={data.total} onChange={setPage} />
     </div>
   );
 }

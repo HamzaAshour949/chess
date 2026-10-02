@@ -5,19 +5,18 @@ const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
   const [admin, setAdmin] = useState(null);
-  const [loading, setLoading] = useState(true);
+  // Only a stored token needs checking; without one there is nothing to wait for.
+  const [loading, setLoading] = useState(() => Boolean(localStorage.getItem("token")));
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (token) {
-      api
-        .get("/auth/me")
-        .then((res) => setAdmin(res.data))
-        .catch(() => localStorage.removeItem("token"))
-        .finally(() => setLoading(false));
-    } else {
-      setLoading(false);
-    }
+    if (!localStorage.getItem("token")) return;
+    api
+      .get("/auth/me")
+      .then((res) => setAdmin(res.data))
+      .catch((error) => {
+        if ([401, 403].includes(error.response?.status)) localStorage.removeItem("token");
+      })
+      .finally(() => setLoading(false));
   }, []);
 
   const login = async (username, password) => {

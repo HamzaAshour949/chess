@@ -1,246 +1,246 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import api from "../../api";
+import i18n from "../../i18n";
+import api, { apiError } from "../../api";
+import { useConfirm } from "../../components/ui/Dialog";
+import { useToast } from "../../components/ui/Toaster";
+import en from "../../locales/en.json";
+import ar from "../../locales/ar.json";
+import { useUnsavedWarning } from "./useUnsavedWarning";
+import { Button, PageHeader, Panel, Pill, inputCls } from "./ui";
 
+/**
+ * Every string on the site, editable.
+ *
+ * The list is the built-in text plus any saved overrides, so an admin can
+ * find and change anything — not only the keys someone happened to override
+ * before. A field left empty falls back to the built-in text, shown as its
+ * placeholder. Only changed rows are sent on save.
+ */
 export default function SiteStringsPage() {
   const { t } = useTranslation();
-  const [strings, setStrings] = useState([]);
-  const [filtered, setFiltered] = useState([]);
+  const confirm = useConfirm();
+  const { toast } = useToast();
+  const [overrides, setOverrides] = useState(null); // key -> { en, ar }
+  const [edits, setEdits] = useState({}); // key -> { en?, ar? }
   const [search, setSearch] = useState("");
+  const [onlyOverridden, setOnlyOverridden] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const [newKey, setNewKey] = useState("");
-  const [newValueEn, setNewValueEn] = useState("");
-  const [newValueAr, setNewValueAr] = useState("");
   const [showAdd, setShowAdd] = useState(false);
-  const [error, setError] = useState("");
+  const [draft, setDraft] = useState({ key: "", en: "", ar: "" });
 
-  const fetchStrings = () => {
-    api.get("/strings/all").then((r) => {
-      // Group by key: [{key, value_en, value_ar}, ...]
-      const grouped = {};
-      r.data.forEach((s) => {
-        if (!grouped[s.key]) grouped[s.key] = { key: s.key, value_en: "", value_ar: "" };
-        if (s.lang === "en") grouped[s.key].value_en = s.value;
-        if (s.lang === "ar") grouped[s.key].value_ar = s.value;
-      });
-      const list = Object.values(grouped).sort((a, b) => a.key.localeCompare(b.key));
-      setStrings(list);
-      setFiltered(list);
-    });
-  };
+  const dirtyCount = Object.keys(edits).length;
+  useUnsavedWarning(dirtyCount > 0);
 
-  useEffect(fetchStrings, []);
+  const load = useCallback(() => {
+    api
+      .get("/strings/all")
+      .then((r) => {
+        const grouped = {};
+        for (const row of r.data) {
+          grouped[row.key] ??= { en: "", ar: "" };
+          grouped[row.key][row.lang] = row.value;
+        }
+        setOverrides(grouped);
+        setEdits({});
+      })
+      .catch((e) => toast({ tone: "error", title: apiError(e, t("load_failed")) }));
+  }, [toast, t]);
 
   useEffect(() => {
-    if (!search.trim()) {
-      setFiltered(strings);
-    } else {
-      const q = search.toLowerCase();
-      setFiltered(
-        strings.filter(
-          (s) =>
-            s.key.toLowerCase().includes(q) ||
-            s.value_en.toLowerCase().includes(q) ||
-            s.value_ar.toLowerCase().includes(q)
-        )
-      );
-    }
-  }, [search, strings]);
+    load();
+  }, [load]);
 
-  const handleChange = (key, lang, value) => {
-    setStrings((prev) =>
-      prev.map((s) =>
-        s.key === key ? { ...s, [lang === "en" ? "value_en" : "value_ar"]: value } : s
-      )
-    );
-    setSaved(false);
+  const rows = useMemo(() => {
+    if (!overrides) return [];
+    const keys = new Set([...Object.keys(en), ...Object.keys(overrides)]);
+    const q = search.trim().toLowerCase();
+    return [...keys]
+      .sort()
+      .map((key) => ({
+        key,
+        defaults: { en: en[key] ?? "", ar: ar[key] ?? "" },
+        saved: overrides[key] ?? null,
+        value: {
+          en: edits[key]?.en ?? overrides[key]?.en ?? "",
+          ar: edits[key]?.ar ?? overrides[key]?.ar ?? "",
+        },
+        custom: !(key in en),
+      }))
+      .filter((row) => !onlyOverridden || row.saved)
+      .filter(
+        (row) =>
+          !q ||
+          row.key.toLowerCase().includes(q) ||
+          [row.value.en, row.value.ar, row.defaults.en, row.defaults.ar].some((v) => v.toLowerCase().includes(q)),
+      );
+  }, [overrides, edits, search, onlyOverridden]);
+
+  const change = (key, lang, value) => {
+    setEdits((current) => ({ ...current, [key]: { ...current[key], [lang]: value } }));
   };
 
-  const handleSave = async () => {
+  const applyLive = (entries) => {
+    // Show the new text in this tab straight away.
+    for (const { key, lang, value } of entries) {
+      const fallback = (lang === "ar" ? ar : en)[key];
+      i18n.addResource(lang, "translation", key, value || fallback || "");
+    }
+  };
+
+  const save = async () => {
+    const entries = Object.entries(edits).flatMap(([key, langs]) =>
+      Object.entries(langs).map(([lang, value]) => ({ key, lang, value })),
+    );
+    if (entries.length === 0) return;
     setSaving(true);
-    setError("");
     try {
-      const payload = [];
-      strings.forEach((s) => {
-        payload.push({ key: s.key, lang: "en", value: s.value_en });
-        payload.push({ key: s.key, lang: "ar", value: s.value_ar });
-      });
-      await api.put("/strings/bulk", { strings: payload });
-      setSaved(true);
-      setTimeout(() => setSaved(false), 3000);
-    } catch {
-      setError("Failed to save strings");
+      await api.put("/strings/bulk", { strings: entries });
+      applyLive(entries);
+      toast({ tone: "success", title: t("strings_saved", { count: Object.keys(edits).length }) });
+      load();
+    } catch (e) {
+      toast({ tone: "error", title: apiError(e, t("action_failed")) });
     } finally {
       setSaving(false);
     }
   };
 
-  const handleAdd = async () => {
-    if (!newKey.trim()) return;
-    setError("");
+  const reset = async (row) => {
+    const ok = await confirm({
+      title: t(row.custom ? "delete_string_title" : "reset_string_title", { key: row.key }),
+      body: t(row.custom ? "delete_string_body" : "reset_string_body"),
+      confirmLabel: t(row.custom ? "delete" : "reset"),
+      tone: "danger",
+    });
+    if (!ok) return;
     try {
-      await api.post("/strings", {
-        key: newKey.trim(),
-        value_en: newValueEn,
-        value_ar: newValueAr,
-      });
-      setNewKey("");
-      setNewValueEn("");
-      setNewValueAr("");
-      setShowAdd(false);
-      fetchStrings();
-    } catch (err) {
-      setError(err.response?.data?.error || "Failed to add string");
+      await api.delete(`/strings/${encodeURIComponent(row.key)}`);
+      applyLive([
+        { key: row.key, lang: "en", value: "" },
+        { key: row.key, lang: "ar", value: "" },
+      ]);
+      load();
+    } catch (e) {
+      toast({ tone: "error", title: apiError(e, t("action_failed")) });
     }
   };
 
-  const handleDelete = async (key) => {
-    if (!window.confirm(`Delete "${key}"?`)) return;
+  const add = async (event) => {
+    event.preventDefault();
     try {
-      await api.delete(`/strings/${encodeURIComponent(key)}`);
-      fetchStrings();
-    } catch {
-      setError("Failed to delete string");
+      await api.post("/strings", { key: draft.key.trim(), value_en: draft.en, value_ar: draft.ar });
+      setDraft({ key: "", en: "", ar: "" });
+      setShowAdd(false);
+      load();
+    } catch (e) {
+      toast({ tone: "error", title: apiError(e, t("action_failed")) });
     }
   };
 
   return (
     <div>
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">{t("site_strings") || "Site Strings"}</h1>
-        <div className="flex gap-2">
-          <button
-            onClick={() => setShowAdd(!showAdd)}
-            className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors text-sm"
-          >
-            + {t("add_string") || "Add String"}
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-medium transition-colors text-sm disabled:opacity-50"
-          >
-            {saving ? t("loading") : saved ? "✓ Saved" : t("save")}
-          </button>
-        </div>
-      </div>
-
-      {error && (
-        <div className="bg-red-50 text-red-700 px-4 py-2 rounded-lg text-sm mb-4">{error}</div>
-      )}
+      <PageHeader title={t("site_strings")} subtitle={t("site_strings_sub")}>
+        <Button onClick={() => setShowAdd((shown) => !shown)}>+ {t("add_string")}</Button>
+        <Button variant="primary" onClick={save} disabled={saving || dirtyCount === 0}>
+          {saving ? t("saving") : dirtyCount ? t("save_n_changes", { count: dirtyCount }) : t("save")}
+        </Button>
+      </PageHeader>
 
       {showAdd && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-4">
-          <h3 className="font-medium text-gray-900 mb-3">{t("add_string") || "Add New String"}</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Key</label>
-              <input
-                value={newKey}
-                onChange={(e) => setNewKey(e.target.value)}
-                placeholder="e.g. welcome_message"
-                className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none text-sm"
-              />
+        <Panel className="p-4 mb-4">
+          <form onSubmit={add} className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+            <label className="block">
+              <span className="block text-xs font-medium text-gray-500 mb-1">{t("key")}</span>
+              <input value={draft.key} onChange={(e) => setDraft({ ...draft, key: e.target.value })} placeholder="promo_banner" required className={inputCls} dir="ltr" />
+            </label>
+            <label className="block">
+              <span className="block text-xs font-medium text-gray-500 mb-1">English</span>
+              <input value={draft.en} onChange={(e) => setDraft({ ...draft, en: e.target.value })} className={inputCls} />
+            </label>
+            <label className="block">
+              <span className="block text-xs font-medium text-gray-500 mb-1">العربية</span>
+              <input value={draft.ar} onChange={(e) => setDraft({ ...draft, ar: e.target.value })} dir="rtl" className={inputCls} />
+            </label>
+            <div className="sm:col-span-3 flex gap-2">
+              <Button type="submit" variant="primary">
+                {t("save")}
+              </Button>
+              <Button onClick={() => setShowAdd(false)}>{t("cancel")}</Button>
             </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">English Value</label>
-              <input
-                value={newValueEn}
-                onChange={(e) => setNewValueEn(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none text-sm"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Arabic Value</label>
-              <input
-                value={newValueAr}
-                onChange={(e) => setNewValueAr(e.target.value)}
-                dir="rtl"
-                className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none text-sm"
-              />
-            </div>
-          </div>
-          <div className="flex gap-2 mt-3">
-            <button
-              onClick={handleAdd}
-              className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm font-medium"
-            >
-              {t("save")}
-            </button>
-            <button
-              onClick={() => setShowAdd(false)}
-              className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium"
-            >
-              {t("cancel")}
-            </button>
-          </div>
-        </div>
+          </form>
+        </Panel>
       )}
 
-      <div className="mb-4">
+      <div className="flex flex-wrap items-center gap-3 mb-4">
         <input
-          type="text"
-          placeholder={`${t("search")} keys or values...`}
+          type="search"
+          placeholder={t("search_strings_placeholder")}
+          aria-label={t("search")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full sm:w-96 px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
+          className={`${inputCls} sm:w-96`}
         />
+        <label className="flex items-center gap-2 text-sm text-gray-700">
+          <input type="checkbox" checked={onlyOverridden} onChange={(e) => setOnlyOverridden(e.target.checked)} className="w-4 h-4 accent-amber-600" />
+          {t("only_customised")}
+        </label>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        {/* Header */}
-        <div className="hidden md:grid grid-cols-12 gap-2 px-4 py-3 bg-gray-50 border-b border-gray-100 text-xs font-medium text-gray-500 uppercase">
-          <div className="col-span-3">Key</div>
+      <Panel className="overflow-hidden">
+        <div className="hidden md:grid grid-cols-12 gap-3 px-4 py-3 bg-gray-50 border-b border-gray-200 text-xs font-semibold text-gray-500 uppercase">
+          <div className="col-span-3">{t("key")}</div>
           <div className="col-span-4">English</div>
           <div className="col-span-4">العربية</div>
-          <div className="col-span-1"></div>
+          <div className="col-span-1" />
         </div>
-
-        {/* Rows */}
-        <div className="divide-y divide-gray-100 max-h-[70vh] overflow-y-auto">
-          {filtered.map((s) => (
-            <div key={s.key} className="grid grid-cols-1 md:grid-cols-12 gap-2 px-4 py-3 items-start hover:bg-gray-50">
-              <div className="md:col-span-3 flex items-center">
-                <code className="text-xs bg-gray-100 px-2 py-1 rounded text-gray-700 break-all">
-                  {s.key}
-                </code>
-              </div>
-              <div className="md:col-span-4">
-                <input
-                  value={s.value_en}
-                  onChange={(e) => handleChange(s.key, "en", e.target.value)}
-                  className="w-full px-3 py-1.5 rounded border border-gray-200 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none text-sm"
+        {overrides === null ? (
+          <p className="text-center text-gray-400 py-10">{t("loading")}</p>
+        ) : (
+          <div className="divide-y divide-gray-100 max-h-[65vh] overflow-y-auto">
+            {rows.map((row) => (
+              <div key={row.key} className={`grid grid-cols-1 md:grid-cols-12 gap-3 px-4 py-3 items-start ${edits[row.key] ? "bg-amber-50" : "hover:bg-gray-50"}`}>
+                <div className="md:col-span-3 flex flex-col gap-1">
+                  <code className="text-xs bg-gray-100 px-2 py-1 rounded text-gray-700 break-all w-fit" dir="ltr">
+                    {row.key}
+                  </code>
+                  <div className="flex gap-1">
+                    {row.custom && <Pill tone="blue">{t("custom")}</Pill>}
+                    {row.saved && !row.custom && <Pill tone="amber">{t("customised")}</Pill>}
+                    {edits[row.key] && <Pill tone="gray">{t("unsaved")}</Pill>}
+                  </div>
+                </div>
+                <textarea
+                  rows={1}
+                  aria-label={`${row.key} English`}
+                  value={row.value.en}
+                  placeholder={row.defaults.en}
+                  onChange={(e) => change(row.key, "en", e.target.value)}
+                  className={`${inputCls} md:col-span-4 resize-y min-h-[38px]`}
                 />
-              </div>
-              <div className="md:col-span-4">
-                <input
-                  value={s.value_ar}
-                  onChange={(e) => handleChange(s.key, "ar", e.target.value)}
+                <textarea
+                  rows={1}
+                  aria-label={`${row.key} العربية`}
+                  value={row.value.ar}
+                  placeholder={row.defaults.ar}
+                  onChange={(e) => change(row.key, "ar", e.target.value)}
                   dir="rtl"
-                  className="w-full px-3 py-1.5 rounded border border-gray-200 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none text-sm"
+                  className={`${inputCls} md:col-span-4 resize-y min-h-[38px]`}
                 />
+                <div className="md:col-span-1 flex justify-end">
+                  {row.saved && (
+                    <button type="button" onClick={() => reset(row)} className="text-xs text-rose-600 hover:text-rose-800 p-1" title={t(row.custom ? "delete" : "reset")}>
+                      {row.custom ? t("delete") : t("reset")}
+                    </button>
+                  )}
+                </div>
               </div>
-              <div className="md:col-span-1 flex justify-end">
-                <button
-                  onClick={() => handleDelete(s.key)}
-                  className="text-red-400 hover:text-red-600 text-xs p-1"
-                  title="Delete"
-                >
-                  ✕
-                </button>
-              </div>
-            </div>
-          ))}
-          {filtered.length === 0 && (
-            <p className="text-center text-gray-500 py-8">{t("no_results")}</p>
-          )}
-        </div>
-      </div>
-
-      <p className="text-xs text-gray-400 mt-3">
-        {filtered.length} of {strings.length} strings shown. Changes are saved when you click Save.
-      </p>
+            ))}
+            {rows.length === 0 && <p className="text-center text-gray-500 py-8">{t("no_results")}</p>}
+          </div>
+        )}
+      </Panel>
+      <p className="text-xs text-gray-500 mt-3">{t("strings_footer", { shown: rows.length })}</p>
     </div>
   );
 }

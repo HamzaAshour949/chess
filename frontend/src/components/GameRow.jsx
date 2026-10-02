@@ -26,7 +26,7 @@ export default function GameRow({ game, perspectiveId }) {
         ? { cls: "chip-red", label: t("result_loss") }
         : outcome === "draw"
           ? { cls: "chip-slate", label: t("result_draw") }
-          : { cls: "chip-slate", label: t(reason ?? "term_aborted") };
+          : { cls: "chip-slate", label: t(game.voided ? "voided" : "status_aborted") };
 
   return (
     <li>

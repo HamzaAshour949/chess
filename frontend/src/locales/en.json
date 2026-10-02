@@ -586,6 +586,7 @@
   "term_resignation": "by resignation",
   "term_timeout": "on time",
   "term_agreement": "by agreement",
+  "status_aborted": "Aborted",
   "term_abandoned": "no first move",
   "term_aborted": "aborted",
   "term_cancelled": "cancelled",

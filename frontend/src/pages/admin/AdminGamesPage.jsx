@@ -13,7 +13,16 @@ function StatusPill({ game, t }) {
   if (game.voided) return <Pill tone="red">{t("voided")}</Pill>;
   if (game.status === "active") return <Pill tone="amber">● {t("live_now")}</Pill>;
   if (game.status === "open") return <Pill tone="blue">{t("open")}</Pill>;
-  if (game.status === "aborted") return <Pill tone="gray">{t(terminationKey(game) ?? "term_aborted")}</Pill>;
+  if (game.status === "aborted") {
+    // "Aborted", plus why when it says more: no first move, declined, expired.
+    const why = game.termination && game.termination !== "aborted" ? ` · ${t(`term_${game.termination}`)}` : "";
+    return (
+      <Pill tone="gray">
+        {t("status_aborted")}
+        {why}
+      </Pill>
+    );
+  }
   return (
     <Pill tone="green">
       {game.result} · {t(terminationKey(game) ?? "finished")}
@@ -135,8 +144,18 @@ export default function AdminGamesPage() {
               </Link>
               <div className="text-xs text-gray-400">{formatDateTime(g.created_at, i18n.language)}</div>
             </td>
-            <td className="px-4 py-3 text-gray-900 whitespace-nowrap">{g.white_user ? nameOf(g.white_user, t) : "—"}</td>
-            <td className="px-4 py-3 text-gray-900 whitespace-nowrap">{g.black_user ? nameOf(g.black_user, t) : "—"}</td>
+            {!g.white_user && !g.black_user && g.creator_user ? (
+              // A random-colour seek has no side yet; show who posted it.
+              <td colSpan={2} className="px-4 py-3 text-gray-900 whitespace-nowrap">
+                <bdi>{nameOf(g.creator_user, t)}</bdi>
+                <span className="text-xs text-gray-500"> · {t("color_random")}</span>
+              </td>
+            ) : (
+              <>
+                <td className="px-4 py-3 text-gray-900 whitespace-nowrap">{g.white_user ? <bdi>{nameOf(g.white_user, t)}</bdi> : "—"}</td>
+                <td className="px-4 py-3 text-gray-900 whitespace-nowrap">{g.black_user ? <bdi>{nameOf(g.black_user, t)}</bdi> : "—"}</td>
+              </>
+            )}
             <td className="px-4 py-3">
               <div className="flex flex-wrap gap-1">
                 <StatusPill game={g} t={t} />

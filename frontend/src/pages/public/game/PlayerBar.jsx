@@ -70,7 +70,11 @@ export default function PlayerBar({ user, side, clock, ticking, lowTime, capture
             {user?.is_provisional && "?"}
           </span>
           <Captured pieces={captured} color={opponentColor} />
-          {advantage > 0 && <span className="text-slate-300 font-semibold">+{advantage}</span>}
+          {advantage > 0 && (
+            <span className="text-slate-300 font-semibold" dir="ltr">
+              +{advantage}
+            </span>
+          )}
         </div>
       </div>
       {clock != null && (

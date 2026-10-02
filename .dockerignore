@@ -1,0 +1,14 @@
+**/node_modules
+**/dist
+.git
+.github
+.claude
+.mongo-data
+.test-uploads
+uploads
+.env
+.env.*
+!.env.example
+server/tests
+**/*.log
+.DS_Store

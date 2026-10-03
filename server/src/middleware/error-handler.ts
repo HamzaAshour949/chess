@@ -67,6 +67,26 @@ export function errorHandler(
     return;
   }
 
+  // Client errors raised by middleware: malformed JSON or an oversized body
+  // (body-parser), a missing static file (express.static). They carry their
+  // own 4xx status; without this they were logged as crashes and answered
+  // with a 500. The reply is generic, so no internal message leaks.
+  const status = (err as { status?: unknown })?.status;
+  if (typeof status === 'number' && status >= 400 && status < 500) {
+    const type = (err as { type?: string }).type;
+    res.status(status).json({
+      error:
+        type === 'entity.parse.failed'
+          ? 'Malformed JSON in request body'
+          : status === 413
+            ? 'Request body is too large'
+            : status === 404
+              ? 'Not found'
+              : 'Bad request',
+    });
+    return;
+  }
+
   // Duplicate key on a unique index.
   if (typeof err === 'object' && err !== null && (err as { code?: number }).code === 11000) {
     const keys = Object.keys((err as { keyPattern?: Record<string, unknown> }).keyPattern ?? {});

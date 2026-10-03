@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { calculateRatings, expectedScore, kFactor } from '../../src/lib/elo.js';
 
 describe('kFactor', () => {

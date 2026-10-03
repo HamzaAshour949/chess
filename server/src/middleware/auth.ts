@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from 'express';
-import { Admin, User } from '../models/index.js';
+import { Admin, User, type UserDoc } from '../models/index.js';
 import { bearerFrom, verifyToken } from '../lib/jwt.js';
 import { HttpError } from '../lib/http-error.js';
 import { asyncHandler } from '../lib/async-handler.js';
@@ -9,24 +9,37 @@ export function authenticate(req: Request, _res: Response, next: NextFunction): 
   const token = bearerFrom(req.headers.authorization);
   if (token) {
     const payload = verifyToken(token);
-    if (payload) req.auth = { id: payload.sub, role: payload.role };
+    if (payload) req.auth = { id: payload.sub, role: payload.role, ver: payload.ver };
   }
   next();
+}
+
+/**
+ * Is this account still allowed to act on this token?
+ *
+ * Deleted accounts are gone, and a token issued before the last password
+ * change (or "sign out everywhere") is revoked.
+ */
+export function tokenStillValid(user: Pick<UserDoc, 'deletedAt' | 'tokenVersion'>, ver: number): boolean {
+  return !user.deletedAt && (user.tokenVersion ?? 0) === ver;
 }
 
 /**
  * Require a verified, unbanned player.
  *
  * The account is re-read on every request rather than trusted from the token,
- * so a ban, a mute or a deletion takes effect immediately instead of when the
- * token happens to expire.
+ * so a ban, a mute, a deletion or a password change takes effect immediately
+ * instead of when the token happens to expire.
  */
 export const requireUser = asyncHandler(async (req, _res, next) => {
   if (!req.auth) throw HttpError.unauthorized('Sign in to continue');
   if (req.auth.role !== 'user') throw HttpError.forbidden('This endpoint is for player accounts');
 
   const user = await User.findById(req.auth.id);
-  if (!user) throw HttpError.unauthorized('Account no longer exists');
+  if (!user || user.deletedAt) throw HttpError.unauthorized('Account no longer exists');
+  if (!tokenStillValid(user, req.auth.ver)) {
+    throw HttpError.unauthorized('Your session has ended. Sign in again.');
+  }
 
   if (user.isBanned) {
     throw HttpError.forbidden('Account suspended', {
@@ -69,7 +82,9 @@ export const requireAdmin = asyncHandler(async (req, _res, next) => {
 export const optionalUser = asyncHandler(async (req, _res, next) => {
   if (req.auth?.role === 'user') {
     const user = await User.findById(req.auth.id);
-    if (user && !user.isBanned && user.isVerified) req.currentUser = user;
+    if (user && !user.isBanned && user.isVerified && tokenStillValid(user, req.auth.ver)) {
+      req.currentUser = user;
+    }
   }
   next();
 });

@@ -2,118 +2,122 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import api from "../../api";
+import { formatDate } from "../../lib/format";
+import { PageHeader, Panel, Pill } from "./ui";
+
+function Stat({ label, value, to, tone = "text-gray-900", note }) {
+  const body = (
+    <>
+      <p className={`text-3xl font-bold tabular-nums ${tone}`}>{value ?? "—"}</p>
+      <p className="text-sm text-gray-500 mt-1">{label}</p>
+      {note && <p className="text-xs text-gray-400 mt-0.5">{note}</p>}
+    </>
+  );
+  return to ? (
+    <Link to={to} className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 hover:border-amber-400 transition-colors">
+      {body}
+    </Link>
+  ) : (
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">{body}</div>
+  );
+}
 
 export default function DashboardPage() {
-  const { t } = useTranslation();
-  const [stats, setStats] = useState({
-    players: 0,
-    news: 0,
-    published_news: 0,
-    draft_news: 0,
-    users: 0,
-    active_games: 0,
-    pending_link_requests: 0,
-  });
+  const { t, i18n } = useTranslation();
+  const [stats, setStats] = useState(null);
   const [recentNews, setRecentNews] = useState([]);
 
   useEffect(() => {
-    // One counted query per statistic, server-side. This page used to fetch
-    // every news article just to count the published ones.
+    // One counted query per statistic, server-side.
     api
       .get("/games/admin/stats")
       .then((r) => setStats(r.data))
-      .catch(() => {});
+      .catch(() => setStats({}));
     api
       .get("/news/admin?per_page=5")
       .then((r) => setRecentNews(r.data.news || []))
       .catch(() => {});
   }, []);
 
-  const cards = [
-    { label: t("total_players"), value: stats.players, color: "bg-blue-500", icon: "♟" },
-    { label: t("total_news"), value: stats.news, color: "bg-amber-500", icon: "📰" },
-    { label: t("published_news"), value: stats.published_news, color: "bg-green-500", icon: "✓" },
-    { label: t("draft_news"), value: stats.draft_news, color: "bg-gray-500", icon: "✎" },
-    { label: t("registered_users", "Players"), value: stats.users, color: "bg-sky-500", icon: "👤" },
-    { label: t("active_games", "Live games"), value: stats.active_games, color: "bg-rose-500", icon: "⚔" },
-  ];
-
-  const quickActions = [
-    { to: "/admin/players/new", label: t("add_player"), icon: "♟", color: "bg-blue-50 text-blue-700 hover:bg-blue-100" },
-    { to: "/admin/news/new", label: t("add_news"), icon: "📰", color: "bg-amber-50 text-amber-700 hover:bg-amber-100" },
-    { to: "/admin/strings", label: t("site_strings") || "Site Strings", icon: "🔤", color: "bg-purple-50 text-purple-700 hover:bg-purple-100" },
-    { to: "/admin/players", label: t("manage_players"), icon: "📋", color: "bg-green-50 text-green-700 hover:bg-green-100" },
-    { to: "/admin/news", label: t("manage_news"), icon: "📝", color: "bg-red-50 text-red-700 hover:bg-red-100" },
-  ];
+  const s = stats ?? {};
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">{t("dashboard")}</h1>
+      <PageHeader title={t("dashboard")} subtitle={t("dashboard_subtitle")} />
 
-      {/* Stats cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8">
-        {cards.map((card) => (
-          <div key={card.label} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <span className={`w-10 h-10 rounded-lg ${card.color} text-white flex items-center justify-center text-lg`}>
-                {card.icon}
-              </span>
-            </div>
-            <p className="text-3xl font-bold text-gray-900">{card.value}</p>
-            <p className="text-sm text-gray-500 mt-1">{card.label}</p>
+      {s.pending_link_requests > 0 && (
+        <Link
+          to="/admin/link-requests"
+          className="flex items-center justify-between gap-3 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl px-5 py-4 mb-6 hover:bg-amber-100 transition-colors"
+        >
+          <span className="font-medium">{t("pending_link_requests_banner", { count: s.pending_link_requests })}</span>
+          <span className="text-sm font-semibold">{t("review")} →</span>
+        </Link>
+      )}
+
+      <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">{t("platform")}</h2>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <Stat label={t("registered_users")} value={s.users} to="/admin/users" note={s.new_users_7d != null ? t("new_this_week", { count: s.new_users_7d }) : null} />
+        <Stat label={t("active_games")} value={s.active_games} to="/admin/games" tone="text-rose-600" />
+        <Stat label={t("games_today")} value={s.games_24h} />
+        <Stat label={t("open_challenges")} value={s.open_games} />
+        <Stat label={t("finished_games")} value={s.finished_games} />
+        <Stat label={t("banned")} value={s.banned_users} to="/admin/users?status=banned" />
+        <Stat label={t("unverified")} value={s.unverified_users} to="/admin/users?status=unverified" />
+        <Stat label={t("link_requests")} value={s.pending_link_requests} to="/admin/link-requests" tone={s.pending_link_requests ? "text-amber-600" : "text-gray-900"} />
+      </div>
+
+      <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">{t("content")}</h2>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <Stat label={t("total_players")} value={s.players} to="/admin/players" />
+        <Stat label={t("published_news")} value={s.published_news} to="/admin/news" />
+        <Stat label={t("draft_news")} value={s.draft_news} to="/admin/news" />
+        <Stat label={t("direct_messages")} value={s.direct_messages} to="/admin/messages" />
+      </div>
+
+      <div className="grid lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-semibold text-gray-900">{t("latest_news")}</h2>
+            <Link to="/admin/news/new" className="text-sm font-semibold text-amber-700 hover:text-amber-800">
+              + {t("add_news")}
+            </Link>
           </div>
-        ))}
-      </div>
-
-      {/* Quick Actions */}
-      <h2 className="text-lg font-semibold text-gray-900 mb-3">Quick Actions</h2>
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-8">
-        {quickActions.map((action) => (
-          <Link
-            key={action.to}
-            to={action.to}
-            className={`flex flex-col items-center gap-2 p-4 rounded-xl border border-gray-100 font-medium text-sm transition-colors ${action.color}`}
-          >
-            <span className="text-2xl">{action.icon}</span>
-            {action.label}
-          </Link>
-        ))}
-      </div>
-
-      {/* Recent News */}
-      <h2 className="text-lg font-semibold text-gray-900 mb-3">{t("latest_news")}</h2>
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="divide-y divide-gray-100">
-          {recentNews.map((n) => (
-            <div key={n.id} className="px-4 py-3 flex items-center justify-between hover:bg-gray-50">
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900 truncate">
-                  {n.title_en || n.title_ar || "—"}
-                </p>
-                <div className="flex items-center gap-2 mt-1">
-                  <span
-                    className={`px-2 py-0.5 rounded text-xs font-medium ${
-                      n.published ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-600"
-                    }`}
-                  >
-                    {n.published ? t("published") : t("unpublished")}
-                  </span>
-                  {n.player_name && (
-                    <span className="text-xs text-gray-500">{n.player_name}</span>
-                  )}
+          <Panel className="divide-y divide-gray-100">
+            {recentNews.map((n) => (
+              <div key={n.id} className="px-4 py-3 flex items-center justify-between gap-3 hover:bg-gray-50">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900 truncate">{n.title_en || n.title_ar || "—"}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Pill tone={n.published ? "green" : "gray"}>{n.published ? t("published") : t("unpublished")}</Pill>
+                    <span className="text-xs text-gray-500">{formatDate(n.created_at, i18n.language)}</span>
+                  </div>
                 </div>
+                <Link to={`/admin/news/${n.id}/edit`} className="text-amber-700 hover:text-amber-900 text-sm font-medium">
+                  {t("edit")}
+                </Link>
               </div>
-              <Link
-                to={`/admin/news/${n.id}/edit`}
-                className="text-amber-600 hover:text-amber-800 text-sm font-medium ms-4"
-              >
-                {t("edit_news")}
+            ))}
+            {recentNews.length === 0 && <p className="text-center text-gray-500 py-6">{t("no_results")}</p>}
+          </Panel>
+        </div>
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900 mb-3">{t("quick_actions")}</h2>
+          <Panel className="p-2">
+            {[
+              { to: "/admin/players/new", label: t("add_player"), icon: "♟" },
+              { to: "/admin/news/new", label: t("add_news"), icon: "📰" },
+              { to: "/admin/link-requests", label: t("link_requests"), icon: "🔗" },
+              { to: "/admin/strings", label: t("site_strings"), icon: "🔤" },
+            ].map((action) => (
+              <Link key={action.to} to={action.to} className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100">
+                <span className="w-6 text-center" aria-hidden="true">
+                  {action.icon}
+                </span>
+                {action.label}
               </Link>
-            </div>
-          ))}
-          {recentNews.length === 0 && (
-            <p className="text-center text-gray-500 py-6">{t("no_results")}</p>
-          )}
+            ))}
+          </Panel>
         </div>
       </div>
     </div>

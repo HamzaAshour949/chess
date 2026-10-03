@@ -1,239 +1,158 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import api from "../../api";
+import api, { apiError } from "../../api";
+import { useToast } from "../../components/ui/Toaster";
+import ImageField from "./ImageField";
+import { useUnsavedWarning } from "./useUnsavedWarning";
+import { Button, ErrorBanner, Field, PageHeader, Panel, inputCls } from "./ui";
+
+const EMPTY = {
+  title_en: "",
+  title_ar: "",
+  content_en: "",
+  content_ar: "",
+  region: "both",
+  image_url: "",
+  published: false,
+  is_featured: false,
+  player_id: "",
+};
 
 export default function NewsFormPage() {
   const { id } = useParams();
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const isEdit = Boolean(id);
 
-  const [form, setForm] = useState({
-    title_en: "",
-    title_ar: "",
-    content_en: "",
-    content_ar: "",
-    region: "both",
-    image_url: "",
-    published: false,
-    is_featured: false,
-    player_id: "",
-  });
+  const [form, setForm] = useState(EMPTY);
   const [players, setPlayers] = useState([]);
-  const [uploading, setUploading] = useState(false);
+  const [loaded, setLoaded] = useState(!isEdit);
+  const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  useUnsavedWarning(dirty);
 
   useEffect(() => {
-    api.get("/players?per_page=100").then((r) => setPlayers(r.data.players));
-    if (isEdit) {
-      api.get(`/news/${id}`).then((r) => {
-        setForm({
-          title_en: r.data.title_en || "",
-          title_ar: r.data.title_ar || "",
-          content_en: r.data.content_en || "",
-          content_ar: r.data.content_ar || "",
-          region: r.data.region || "both",
-          image_url: r.data.image_url || "",
-          published: r.data.published || false,
-          is_featured: r.data.is_featured || false,
-          player_id: r.data.player_id || "",
-        });
-      });
-    }
-  }, [id, isEdit]);
+    api
+      .get("/players?per_page=100")
+      .then((r) => setPlayers(r.data.players || []))
+      .catch(() => {});
+    if (!isEdit) return;
+    api
+      .get(`/news/${id}`)
+      .then((r) => {
+        setForm(Object.fromEntries(Object.keys(EMPTY).map((key) => [key, r.data[key] ?? EMPTY[key]])));
+        setLoaded(true);
+      })
+      .catch((e) => setError(apiError(e, t("load_failed"))));
+  }, [id, isEdit, t]);
 
-  const handleChange = (e) => {
-    const value = e.target.type === "checkbox" ? e.target.checked : e.target.value;
-    setForm({ ...form, [e.target.name]: value });
+  const update = (patch) => {
+    setForm((current) => ({ ...current, ...patch }));
+    setDirty(true);
   };
-
-  const handleImageUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    setUploading(true);
-    try {
-      const fd = new FormData();
-      fd.append("file", file);
-      const res = await api.post("/upload/image", fd);
-      setForm({ ...form, image_url: res.data.url });
-    } catch {
-      setError("Image upload failed");
-    } finally {
-      setUploading(false);
-    }
-  };
+  const handleChange = (e) => update({ [e.target.name]: e.target.type === "checkbox" ? e.target.checked : e.target.value });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!form.title_en.trim() && !form.title_ar.trim()) {
+      setError(t("news_title_required"));
+      return;
+    }
     setError("");
     setSaving(true);
     try {
-      const payload = {
-        ...form,
-        player_id: form.player_id ? parseInt(form.player_id) : null,
-      };
-      if (isEdit) {
-        await api.put(`/news/${id}`, payload);
-      } else {
-        await api.post("/news", payload);
-      }
+      // Player ids are ObjectId strings; they used to go through parseInt,
+      // which turned every one into NaN and made the save fail.
+      const payload = { ...form, player_id: form.player_id || null };
+      if (isEdit) await api.put(`/news/${id}`, payload);
+      else await api.post("/news", payload);
+      setDirty(false);
+      toast({ tone: "success", title: t("saved") });
       navigate("/admin/news");
-    } catch {
-      setError("Failed to save news");
+    } catch (err) {
+      setError(apiError(err, t("action_failed")));
+      window.scrollTo({ top: 0, behavior: "smooth" });
     } finally {
       setSaving(false);
     }
   };
 
+  if (!loaded && !error) return <p className="text-gray-500">{t("loading")}</p>;
+
   return (
     <div className="max-w-3xl">
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">
-        {isEdit ? t("edit_news") : t("add_news")}
-      </h1>
-
-      <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-5">
-        {error && (
-          <div className="bg-red-50 text-red-700 px-4 py-2 rounded-lg text-sm">{error}</div>
+      <PageHeader title={isEdit ? t("edit_news") : t("add_news")}>
+        {isEdit && (
+          <Link to={`/news/${id}`} target="_blank" rel="noreferrer" className="text-sm text-gray-600 hover:text-gray-900">
+            {t("preview")} ↗
+          </Link>
         )}
+      </PageHeader>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">{t("title_en")}</label>
-            <input
-              name="title_en"
-              value={form.title_en}
-              onChange={handleChange}
-              className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
-            />
+      <form onSubmit={handleSubmit}>
+        <Panel className="p-6 space-y-5">
+          <ErrorBanner>{error}</ErrorBanner>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label={t("title_en")} htmlFor="title_en">
+              <input id="title_en" name="title_en" value={form.title_en} onChange={handleChange} maxLength={500} className={inputCls} />
+            </Field>
+            <Field label={t("title_ar")} htmlFor="title_ar">
+              <input id="title_ar" name="title_ar" value={form.title_ar} onChange={handleChange} maxLength={500} dir="rtl" className={inputCls} />
+            </Field>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">{t("title_ar")}</label>
-            <input
-              name="title_ar"
-              value={form.title_ar}
-              onChange={handleChange}
-              dir="rtl"
-              className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
-            />
+
+          <Field label={t("content_en")} htmlFor="content_en">
+            <textarea id="content_en" name="content_en" value={form.content_en} onChange={handleChange} rows={8} className={inputCls} />
+          </Field>
+          <Field label={t("content_ar")} htmlFor="content_ar">
+            <textarea id="content_ar" name="content_ar" value={form.content_ar} onChange={handleChange} rows={8} dir="rtl" className={inputCls} />
+          </Field>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label={t("region")} htmlFor="region" hint={t("region_hint")}>
+              <select id="region" name="region" value={form.region} onChange={handleChange} className={inputCls}>
+                <option value="both">{t("region_both")}</option>
+                <option value="en">{t("region_en")}</option>
+                <option value="ar">{t("region_ar")}</option>
+              </select>
+            </Field>
+            <Field label={t("select_player")} htmlFor="player_id">
+              <select id="player_id" name="player_id" value={form.player_id} onChange={handleChange} className={inputCls}>
+                <option value="">—</option>
+                {players.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name_en}
+                  </option>
+                ))}
+              </select>
+            </Field>
           </div>
-        </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">{t("content_en")}</label>
-          <textarea
-            name="content_en"
-            value={form.content_en}
-            onChange={handleChange}
-            rows={6}
-            className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
-          />
-        </div>
+          <ImageField value={form.image_url} onChange={(url) => update({ image_url: url })} onError={setError} />
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">{t("content_ar")}</label>
-          <textarea
-            name="content_ar"
-            value={form.content_ar}
-            onChange={handleChange}
-            rows={6}
-            dir="rtl"
-            className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
-          />
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">{t("region")}</label>
-            <select
-              name="region"
-              value={form.region}
-              onChange={handleChange}
-              className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
-            >
-              <option value="both">{t("region_both")}</option>
-              <option value="en">{t("region_en")}</option>
-              <option value="ar">{t("region_ar")}</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">{t("select_player")}</label>
-            <select
-              name="player_id"
-              value={form.player_id}
-              onChange={handleChange}
-              className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
-            >
-              <option value="">—</option>
-              {players.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name_en}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">{t("image")}</label>
-          <div className="flex items-center gap-4">
-            {form.image_url && (
-              <img src={form.image_url} alt="" className="w-20 h-20 object-cover rounded-lg" />
-            )}
-            <label className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg cursor-pointer text-sm font-medium text-gray-700 transition-colors">
-              {uploading ? t("loading") : t("upload_image")}
-              <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
-            </label>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-6">
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              name="published"
-              id="published"
-              checked={form.published}
-              onChange={handleChange}
-              className="w-4 h-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500"
-            />
-            <label htmlFor="published" className="text-sm font-medium text-gray-700">
+          <div className="border-t border-gray-200 pt-5 space-y-3">
+            <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+              <input type="checkbox" name="published" checked={form.published} onChange={handleChange} className="w-4 h-4 accent-amber-600" />
               {t("published")}
             </label>
-          </div>
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              name="is_featured"
-              id="is_featured"
-              checked={form.is_featured}
-              onChange={handleChange}
-              className="w-4 h-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500"
-            />
-            <label htmlFor="is_featured" className="text-sm font-medium text-gray-700">
+            <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+              <input type="checkbox" name="is_featured" checked={form.is_featured} onChange={handleChange} className="w-4 h-4 accent-amber-600" />
               ⭐ {t("mark_featured")}
             </label>
+            <p className="text-xs text-gray-500">{t("featured_hint")}</p>
           </div>
-        </div>
-        <p className="text-xs text-gray-400">{t("featured_hint")}</p>
 
-        <div className="flex gap-3 pt-2">
-          <button
-            type="submit"
-            disabled={saving}
-            className="px-6 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
-          >
-            {saving ? t("loading") : t("save")}
-          </button>
-          <button
-            type="button"
-            onClick={() => navigate("/admin/news")}
-            className="px-6 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors"
-          >
-            {t("cancel")}
-          </button>
-        </div>
+          <div className="flex gap-3 pt-2">
+            <Button type="submit" variant="primary" disabled={saving}>
+              {saving ? t("saving") : t("save")}
+            </Button>
+            <Button onClick={() => navigate("/admin/news")}>{t("cancel")}</Button>
+          </div>
+        </Panel>
       </form>
     </div>
   );

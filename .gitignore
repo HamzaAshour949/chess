@@ -1,6 +1,8 @@
 # Dependencies
 node_modules/
-.npm/
+# Bun owns the lockfile; an npm or yarn one would drift from bun.lock.
+package-lock.json
+yarn.lock
 
 # Build output
 dist/
@@ -24,11 +26,9 @@ uploads/*
 # Logs
 *.log
 logs/
-npm-debug.log*
 
 # Test / tooling caches
 coverage/
-.vitest/
 .eslintcache
 
 # macOS

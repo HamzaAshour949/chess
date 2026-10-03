@@ -1,8 +1,8 @@
-import { fileURLToPath } from 'node:url';
 import type { Types } from 'mongoose';
-import bcrypt from 'bcryptjs';
 import { env } from '../config/env.js';
 import { logger } from '../lib/logger.js';
+import { hashPassword } from '../lib/password.js';
+import { buildPgn, replayGame } from '../lib/chess.js';
 import { connectDatabase, disconnectDatabase } from './mongoose.js';
 import { syncIndexes } from './sync-indexes.js';
 import {
@@ -34,6 +34,7 @@ const DEMO_USERS = [
     email: 'magnus@chesshub.test',
     displayName: 'Magnus T.',
     country: 'Norway',
+    lang: 'en' as const,
     onlineRating: 1640,
     gamesPlayed: 24,
     gamesWon: 14,
@@ -45,6 +46,7 @@ const DEMO_USERS = [
     email: 'hikaru@chesshub.test',
     displayName: 'Hikaru N.',
     country: 'USA',
+    lang: 'en' as const,
     onlineRating: 1585,
     gamesPlayed: 19,
     gamesWon: 9,
@@ -78,7 +80,7 @@ export async function seed({ fresh = false }: SeedOptions = {}): Promise<void> {
   }
 
   // ---------------------------------------------------------------- admin
-  const adminHash = await bcrypt.hash(ADMIN_PASSWORD, env.BCRYPT_ROUNDS);
+  const adminHash = await hashPassword(ADMIN_PASSWORD);
   await Admin.updateOne(
     { username: 'admin' },
     { $set: { email: 'admin@chesshub.test', passwordHash: adminHash } },
@@ -148,7 +150,7 @@ export async function seed({ fresh = false }: SeedOptions = {}): Promise<void> {
   );
 
   // --------------------------------------------------------- demo players
-  const demoHash = await bcrypt.hash(DEMO_PASSWORD, env.BCRYPT_ROUNDS);
+  const demoHash = await hashPassword(DEMO_PASSWORD);
   const demoIds: Types.ObjectId[] = [];
 
   for (const demo of DEMO_USERS) {
@@ -175,7 +177,6 @@ export async function seed({ fresh = false }: SeedOptions = {}): Promise<void> {
   const [whiteId, blackId] = demoIds;
   if (whiteId && blackId && (await Game.countDocuments()) === 0) {
     const moves = 'e2e4 e7e5 g1f3 b8c6 f1c4 f8c5 b2b4 c5b4 c2c3 b4a5 d2d4 e5d4 e1g1 d4c3';
-    const { buildPgn, replayGame } = await import('../lib/chess.js');
     const board = replayGame(moves);
 
     await Game.create({
@@ -222,11 +223,11 @@ export async function seed({ fresh = false }: SeedOptions = {}): Promise<void> {
   console.log(`
   Chess Hub is seeded.
 
-  Admin panel   http://localhost:${env.PORT}/admin/login
+  Admin panel   ${env.APP_URL}/admin/login
     username    admin
     password    ${ADMIN_PASSWORD}
 
-  Players       http://localhost:${env.PORT}/login
+  Players       ${env.APP_URL}/login
     ${DEMO_USERS[0]?.username} / ${DEMO_PASSWORD}   (${DEMO_USERS[0]?.email})
     ${DEMO_USERS[1]?.username} / ${DEMO_PASSWORD}   (${DEMO_USERS[1]?.email})
 
@@ -236,9 +237,26 @@ export async function seed({ fresh = false }: SeedOptions = {}): Promise<void> {
   /* eslint-enable no-console */
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
-  const fresh = process.argv.includes('--fresh');
+/**
+ * Whether the database already holds this app's data. `--if-empty` checks it
+ * so `bun run up` seeds a new database once and never touches one in use.
+ */
+async function isSeeded(): Promise<boolean> {
+  const [admins, players] = await Promise.all([
+    Admin.estimatedDocumentCount(),
+    Player.estimatedDocumentCount(),
+  ]);
+  return admins + players > 0;
+}
+
+if (import.meta.main) {
+  const fresh = Bun.argv.includes('--fresh');
+  const ifEmpty = Bun.argv.includes('--if-empty');
   await connectDatabase();
-  await seed({ fresh });
+  if (ifEmpty && !fresh && (await isSeeded())) {
+    logger.info('Database already has data; skipping the seed');
+  } else {
+    await seed({ fresh });
+  }
   await disconnectDatabase();
 }

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { escapeRegex, sanitizeChat, trimToNull } from '../../src/lib/sanitize.js';
 
 describe('sanitizeChat', () => {

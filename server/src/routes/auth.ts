@@ -1,28 +1,20 @@
 import { Router } from 'express';
-import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { Admin } from '../models/index.js';
-import { env } from '../config/env.js';
 import { signToken } from '../lib/jwt.js';
 import { asyncHandler } from '../lib/async-handler.js';
 import { HttpError } from '../lib/http-error.js';
 import { parseBody } from '../lib/validate.js';
 import { serializeAdmin } from '../lib/serializers.js';
+import { hashPassword, verifyAgainstNothing, verifyPassword } from '../lib/password.js';
 import { currentAdmin, requireAdmin } from '../middleware/auth.js';
 import { limiter, loginLimiter } from '../middleware/rate-limit.js';
 
 export const authRouter: Router = Router();
 
-/**
- * A bcrypt hash of a value nobody knows, compared against when the account
- * does not exist. Without it, a missing account returns noticeably faster than
- * a wrong password and the endpoint becomes a username oracle.
- */
-const DUMMY_HASH = '$2b$12$C6UzMDM.H6dfI/f/IKcEeO1oO7VQfF5Y0GQPO5rZ5uMqQzZQzZQzZ';
-
 const loginSchema = z.object({
-  username: z.string().trim().min(1, 'Username is required'),
-  password: z.string().min(1, 'Password is required'),
+  username: z.string().trim().min(1, 'Username is required').max(80),
+  password: z.string().min(1, 'Password is required').max(200),
 });
 
 authRouter.post(
@@ -32,9 +24,18 @@ authRouter.post(
     const { username, password } = parseBody(loginSchema, req);
 
     const admin = await Admin.findOne({ username }).select('+passwordHash');
-    const matches = await bcrypt.compare(password, admin?.passwordHash ?? DUMMY_HASH);
+    if (!admin) {
+      // Same work as a wrong password, so the response time does not reveal
+      // which usernames exist.
+      await verifyAgainstNothing(password);
+      throw HttpError.unauthorized('Invalid credentials');
+    }
 
-    if (!admin || !matches) throw HttpError.unauthorized('Invalid credentials');
+    const check = await verifyPassword(password, admin.passwordHash);
+    if (!check.valid) throw HttpError.unauthorized('Invalid credentials');
+    if (check.needsRehash) {
+      await Admin.updateOne({ _id: admin._id }, { $set: { passwordHash: await hashPassword(password) } });
+    }
 
     res.json({
       token: signToken(String(admin._id), 'admin'),
@@ -73,7 +74,7 @@ authRouter.post(
     const admin = await Admin.create({
       username,
       email,
-      passwordHash: await bcrypt.hash(password, env.BCRYPT_ROUNDS),
+      passwordHash: await hashPassword(password),
     });
 
     res.status(201).json({

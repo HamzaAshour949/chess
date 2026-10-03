@@ -1,22 +1,61 @@
 import type { ClientSession } from 'mongoose';
+import { env } from '../config/env.js';
 import { mongoose, supportsTransactions } from '../db/mongoose.js';
 import { Game, User, type GameDoc, type UserDoc } from '../models/index.js';
 import { calculateRatings } from '../lib/elo.js';
 import { canMate, turnFromFen, type Termination } from '../lib/chess.js';
+import { deadlineFor, isOverdue, type Side } from '../lib/clock.js';
 import { HttpError } from '../lib/http-error.js';
 import { logger } from '../lib/logger.js';
+import { serializeGame } from '../lib/serializers.js';
+import { notifyUser, publishGame, type MoveInfo } from '../realtime/publish.js';
 
-export type Side = 'white' | 'black';
+export type { Side };
+
+/** The public fields of a player, for populating the sides of a game. */
+export const PLAYER_FIELDS =
+  'username displayName avatarUrl country onlineRating gamesPlayed gamesWon gamesLost gamesDrawn linkedPlayerId isBanned deletedAt createdAt';
+
+interface Populatable<Q> {
+  populate: (path: string, select: string) => Q;
+}
+
+/** Populating every side keeps a list of games to one query, not one per row. */
+export function withPlayers<Q extends Populatable<Q>>(query: Q): Q {
+  return query
+    .populate('whiteUserId', PLAYER_FIELDS)
+    .populate('blackUserId', PLAYER_FIELDS)
+    .populate('creatorUserId', PLAYER_FIELDS)
+    .populate('invitedUserId', PLAYER_FIELDS);
+}
+
+export async function loadGame(id: string): Promise<GameDoc> {
+  const game = await withPlayers(Game.findById(id));
+  if (!game) throw HttpError.notFound('Game not found');
+  return game;
+}
 
 /** Which side of the board this user is on, or null for a spectator. */
 export function sideOf(game: GameDoc, userId: string): Side | null {
-  if (String(game.whiteUserId) === userId) return 'white';
-  if (String(game.blackUserId) === userId) return 'black';
+  if (refId(game.whiteUserId) === userId) return 'white';
+  if (refId(game.blackUserId) === userId) return 'black';
   return null;
 }
 
-export function isFinished(game: GameDoc): boolean {
+/** The id behind a reference, whether or not it has been populated. */
+export function refId(ref: unknown): string | null {
+  if (!ref) return null;
+  if (typeof ref === 'object' && '_id' in ref) return String((ref as { _id: unknown })._id);
+  return String(ref);
+}
+
+export function isFinished(game: Pick<GameDoc, 'status'>): boolean {
   return game.status === 'white_wins' || game.status === 'black_wins' || game.status === 'draw';
+}
+
+/** Both participants, for notification fan-out. */
+export function participantIds(game: GameDoc): string[] {
+  return [refId(game.whiteUserId), refId(game.blackUserId)].filter((id): id is string => !!id);
 }
 
 function statusFor(result: string): 'white_wins' | 'black_wins' | 'draw' {
@@ -25,25 +64,8 @@ function statusFor(result: string): 'white_wins' | 'black_wins' | 'draw' {
   return 'draw';
 }
 
-/**
- * Milliseconds the side to move has left right now.
- *
- * The stored value only changes when a move is played, so the time spent on
- * the move in progress has to be subtracted on read.
- */
-export function remainingMs(game: GameDoc, now = Date.now()): { white: number; black: number } | null {
-  if (game.whiteTimeMs == null || game.blackTimeMs == null) return null;
-
-  let { whiteTimeMs: white, blackTimeMs: black } = game;
-  if (game.status === 'active') {
-    const since = game.lastMoveAt ?? game.startedAt;
-    if (since) {
-      const elapsed = Math.max(0, now - new Date(since).getTime());
-      if (turnFromFen(game.fen) === 'white') white = Math.max(0, white - elapsed);
-      else black = Math.max(0, black - elapsed);
-    }
-  }
-  return { white, black };
+function capitalise(value: string): string {
+  return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
 /**
@@ -60,7 +82,7 @@ export async function finishGame(
 ): Promise<GameDoc> {
   const game = await Game.findById(gameId);
   if (!game) throw HttpError.notFound('Game not found');
-  if (isFinished(game)) return game;
+  if (game.status !== 'active') return game;
 
   const status = statusFor(result);
   const endedAt = new Date();
@@ -102,6 +124,7 @@ export async function finishGame(
           result,
           termination,
           endedAt,
+          deadlineAt: null,
           drawOfferBy: null,
           whiteRatingBefore: whiteBefore,
           blackRatingBefore: blackBefore,
@@ -123,12 +146,24 @@ export async function finishGame(
       await Promise.all([
         User.updateOne(
           { _id: white._id },
-          { $inc: { gamesPlayed: 1, [`games${cap(whiteResult)}`]: 1, onlineRating: whiteDelta } },
+          {
+            $inc: {
+              gamesPlayed: 1,
+              [`games${capitalise(whiteResult)}`]: 1,
+              onlineRating: whiteDelta,
+            },
+          },
           options,
         ),
         User.updateOne(
           { _id: black._id },
-          { $inc: { gamesPlayed: 1, [`games${cap(blackResult)}`]: 1, onlineRating: blackDelta } },
+          {
+            $inc: {
+              gamesPlayed: 1,
+              [`games${capitalise(blackResult)}`]: 1,
+              onlineRating: blackDelta,
+            },
+          },
           options,
         ),
       ]);
@@ -162,30 +197,63 @@ export async function finishGame(
   return settled;
 }
 
-function cap(value: string): string {
-  return value.charAt(0).toUpperCase() + value.slice(1);
+/**
+ * End a challenge or a game without a result: no rating change, no stats.
+ *
+ * Guarded on the statuses it may leave, so it can never overwrite a result.
+ * Returns null if the game had already moved on.
+ */
+export async function abortGame(
+  gameId: string,
+  termination: Termination,
+  options: {
+    from?: Array<'open' | 'active'>;
+    reason?: string | null;
+    /** Extra conditions the game must still meet, checked in the same write. */
+    where?: Record<string, unknown>;
+  } = {},
+): Promise<GameDoc | null> {
+  const from = options.from ?? ['open', 'active'];
+  return Game.findOneAndUpdate(
+    { ...options.where, _id: gameId, status: { $in: from } },
+    {
+      $set: {
+        status: 'aborted',
+        termination,
+        endedAt: new Date(),
+        deadlineAt: null,
+        drawOfferBy: null,
+        ...(options.reason !== undefined ? { voidReason: options.reason } : {}),
+      },
+      $inc: { version: 1 },
+    },
+    { returnDocument: 'after' },
+  );
 }
 
 /**
- * End the game if the side to move has run out of time.
+ * Settle the game if the side to move is past its deadline.
  *
- * Returns the updated game when a flag fell, otherwise null. Called lazily on
- * every read and every move attempt, so a clock runs out even if neither
- * player is looking.
+ * During the free first moves that means a no-show, and the game is aborted.
+ * After that it is a flag: a loss on time — or, per FIDE, a draw when the
+ * opponent has too little material left to ever mate.
+ *
+ * Returns the settled game, or null when there was nothing to do. Called on
+ * every read, every move attempt and by the sweeper, so a clock runs out even
+ * when neither player is looking.
  */
-export async function enforceClock(game: GameDoc): Promise<GameDoc | null> {
-  if (game.status !== 'active' || !game.timeControlSeconds) return null;
+export async function enforceClock(game: GameDoc, now = Date.now()): Promise<GameDoc | null> {
+  const overdue = isOverdue(game, now);
+  if (!overdue) return null;
 
-  const remaining = remainingMs(game);
-  if (!remaining) return null;
+  if (overdue === 'first_move') {
+    const aborted = await abortGame(String(game._id), 'abandoned', { from: ['active'] });
+    logger.debug({ gameId: String(game._id) }, 'No first move; game aborted');
+    return aborted ?? (await Game.findById(game._id));
+  }
 
   const side = turnFromFen(game.fen);
-  if (remaining[side] > 0) return null;
-
   const winner: Side = side === 'white' ? 'black' : 'white';
-
-  // FIDE: running out of time is only a loss if the opponent could still mate.
-  // With a bare king, or king and one minor piece, it is a draw instead.
   const result = canMate(game.fen, winner) ? (winner === 'white' ? '1-0' : '0-1') : '1/2-1/2';
 
   await Game.updateOne(
@@ -198,39 +266,109 @@ export async function enforceClock(game: GameDoc): Promise<GameDoc | null> {
 }
 
 /**
- * Deduct the time spent on this move and add the Fischer increment.
+ * Re-read a game with its players and push it to everyone watching.
  *
- * Returns the new clock values in milliseconds, or null for an untimed game.
+ * `lobby` also nudges the lobby and live-game lists, for any change of status:
+ * a challenge posted, withdrawn or taken, a game started or finished.
  */
-export function consumeClock(
-  game: GameDoc,
-  now = Date.now(),
-): { whiteTimeMs: number; blackTimeMs: number } | null {
-  if (!game.timeControlSeconds || game.whiteTimeMs == null || game.blackTimeMs == null) {
-    return null;
-  }
-
-  const since = game.lastMoveAt ?? game.startedAt;
-  const elapsed = since ? Math.max(0, now - new Date(since).getTime()) : 0;
-  const increment = game.incrementSeconds * 1000;
-  const side = turnFromFen(game.fen);
-
-  // Milliseconds throughout: whole-second budgets accumulate rounding drift
-  // across a long increment game, always in the mover's favour.
-  return side === 'white'
-    ? {
-        whiteTimeMs: Math.max(0, game.whiteTimeMs - elapsed + increment),
-        blackTimeMs: game.blackTimeMs,
-      }
-    : {
-        whiteTimeMs: game.whiteTimeMs,
-        blackTimeMs: Math.max(0, game.blackTimeMs - elapsed + increment),
-      };
+export async function announce(
+  gameId: string,
+  options: { lobby?: boolean; move?: MoveInfo } = {},
+): Promise<GameDoc> {
+  const game = await loadGame(gameId);
+  // Private invitations are nobody else's business until they become a game.
+  const lobby = options.lobby && !(game.status === 'open' && game.direct);
+  publishGame(game, lobby ? 'lobby' : undefined, options.move);
+  return game;
 }
 
-/** Both participants of a game, for notification fan-out. */
-export function participantIds(game: GameDoc): string[] {
-  return [game.whiteUserId, game.blackUserId].filter(Boolean).map(String);
+/** Tell the other party that an open challenge is gone, and why. */
+export function notifyChallengeClosed(game: GameDoc, exceptUserId?: string): void {
+  const payload = serializeGame(game);
+  for (const id of [refId(game.creatorUserId), refId(game.invitedUserId)]) {
+    if (id && id !== exceptUserId) notifyUser(id, 'challenge:closed', payload);
+  }
+}
+
+// ------------------------------------------------------------------ sweeper
+
+/**
+ * One pass of housekeeping.
+ *
+ *  1. Live games whose deadline passed are settled and announced, so a flag
+ *     falls — and the opponent is told — even if nobody has the board open.
+ *  2. Live games from before deadlines were stored get one computed.
+ *  3. Challenges nobody accepted within CHALLENGE_TTL_MINUTES are withdrawn,
+ *     so the lobby never fills with seeks from players who left hours ago.
+ *
+ * Every write is a guarded update, so two server instances sweeping at the
+ * same moment cannot double-apply anything.
+ */
+export async function sweepGames(now = new Date()): Promise<{ settled: number; expired: number }> {
+  let settled = 0;
+  let expired = 0;
+
+  const overdue = await Game.find({ status: 'active', deadlineAt: { $lte: now } }).limit(200);
+  for (const game of overdue) {
+    const result = await enforceClock(game, now.getTime());
+    if (result) {
+      settled += 1;
+      await announce(String(game._id), { lobby: true });
+    } else {
+      // The stored deadline was stale; recompute it from the live state.
+      await Game.updateOne(
+        { _id: game._id, version: game.version },
+        { $set: { deadlineAt: deadlineFor(game) } },
+      );
+    }
+  }
+
+  const missing = await Game.find({
+    status: 'active',
+    deadlineAt: null,
+    $or: [{ moveCount: { $lt: 2 } }, { timeControlSeconds: { $gt: 0 } }],
+  }).limit(200);
+  for (const game of missing) {
+    await Game.updateOne(
+      { _id: game._id, version: game.version },
+      { $set: { deadlineAt: deadlineFor(game) } },
+    );
+  }
+
+  const stale = await Game.find({
+    status: 'open',
+    createdAt: { $lt: new Date(now.getTime() - env.challengeTtlMs) },
+  })
+    .select('_id')
+    .limit(200);
+  for (const { _id } of stale) {
+    const closed = await abortGame(String(_id), 'expired', { from: ['open'] });
+    if (!closed) continue;
+    expired += 1;
+    const game = await announce(String(_id), { lobby: true });
+    notifyChallengeClosed(game);
+  }
+
+  return { settled, expired };
+}
+
+/** Run the sweeper every `intervalMs`. Returns a function that stops it. */
+export function startSweeper(intervalMs = 3000): () => void {
+  let running = false;
+  const timer = setInterval(() => {
+    if (running) return;
+    running = true;
+    sweepGames()
+      .then(({ settled, expired }) => {
+        if (settled || expired) logger.debug({ settled, expired }, 'Sweeper pass');
+      })
+      .catch((error) => logger.error({ err: error }, 'Game sweeper failed'))
+      .finally(() => {
+        running = false;
+      });
+  }, intervalMs);
+  timer.unref?.();
+  return () => clearInterval(timer);
 }
 
 export type { GameDoc, UserDoc };

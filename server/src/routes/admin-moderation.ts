@@ -21,7 +21,7 @@ import {
 } from '../lib/serializers.js';
 import { escapeRegex, trimToNull } from '../lib/sanitize.js';
 import { currentAdmin, requireAdmin } from '../middleware/auth.js';
-import { publishGame } from '../realtime/publish.js';
+import { abortGame, announce, notifyChallengeClosed, withPlayers } from '../services/game-service.js';
 
 /** Mounted at /api/games/admin. */
 export const adminGamesRouter: Router = Router();
@@ -30,8 +30,6 @@ export const adminMessagesRouter: Router = Router();
 
 adminGamesRouter.use(requireAdmin);
 adminMessagesRouter.use(requireAdmin);
-
-const PLAYER_FIELDS = 'username displayName avatarUrl country onlineRating gamesPlayed isBanned';
 
 // ------------------------------------------------------------------- stats
 
@@ -44,22 +42,42 @@ const PLAYER_FIELDS = 'username displayName avatarUrl country onlineRating games
 adminGamesRouter.get(
   '/stats',
   asyncHandler(async (_req, res) => {
-    const [players, news, publishedNews, featured, users, bannedUsers, unverified, openGames, activeGames, finishedGames, pendingLinks, gameMessages, directMessages] =
-      await Promise.all([
-        Player.countDocuments(),
-        News.countDocuments(),
-        News.countDocuments({ published: true }),
-        News.countDocuments({ isFeatured: true }),
-        User.countDocuments(),
-        User.countDocuments({ isBanned: true }),
-        User.countDocuments({ isVerified: false }),
-        Game.countDocuments({ status: 'open' }),
-        Game.countDocuments({ status: 'active' }),
-        Game.countDocuments({ status: { $in: FINISHED_STATUSES } }),
-        LinkRequest.countDocuments({ status: 'pending' }),
-        GameMessage.countDocuments({ isDeleted: false }),
-        DirectMessage.countDocuments({ isDeleted: false }),
-      ]);
+    const day = 24 * 60 * 60 * 1000;
+    const now = Date.now();
+    const counts = await Promise.all([
+      Player.countDocuments(),
+      News.countDocuments(),
+      News.countDocuments({ published: true }),
+      News.countDocuments({ isFeatured: true }),
+      User.countDocuments({ deletedAt: null }),
+      User.countDocuments({ isBanned: true, deletedAt: null }),
+      User.countDocuments({ isVerified: false }),
+      User.countDocuments({ deletedAt: null, createdAt: { $gte: new Date(now - 7 * day) } }),
+      Game.countDocuments({ status: 'open' }),
+      Game.countDocuments({ status: 'active' }),
+      Game.countDocuments({ status: { $in: FINISHED_STATUSES } }),
+      Game.countDocuments({ status: { $in: FINISHED_STATUSES }, endedAt: { $gte: new Date(now - day) } }),
+      LinkRequest.countDocuments({ status: 'pending' }),
+      GameMessage.countDocuments({ isDeleted: false }),
+      DirectMessage.countDocuments({ isDeleted: false }),
+    ]);
+    const [
+      players,
+      news,
+      publishedNews,
+      featured,
+      users,
+      bannedUsers,
+      unverified,
+      newUsers,
+      openGames,
+      activeGames,
+      finishedGames,
+      gamesToday,
+      pendingLinks,
+      gameMessages,
+      directMessages,
+    ] = counts;
 
     res.json({
       players,
@@ -70,9 +88,11 @@ adminGamesRouter.get(
       users,
       banned_users: bannedUsers,
       unverified_users: unverified,
+      new_users_7d: newUsers,
       open_games: openGames,
       active_games: activeGames,
       finished_games: finishedGames,
+      games_24h: gamesToday,
       pending_link_requests: pendingLinks,
       game_messages: gameMessages,
       direct_messages: directMessages,
@@ -108,13 +128,10 @@ adminGamesRouter.get(
     }
 
     const [games, total] = await Promise.all([
-      Game.find(filter)
+      withPlayers(Game.find(filter))
         .sort({ createdAt: -1 })
         .skip((page - 1) * perPage)
-        .limit(perPage)
-        .populate('whiteUserId', PLAYER_FIELDS)
-        .populate('blackUserId', PLAYER_FIELDS)
-        .populate('creatorUserId', PLAYER_FIELDS),
+        .limit(perPage),
       Game.countDocuments(filter),
     ]);
 
@@ -127,36 +144,21 @@ adminGamesRouter.get(
 
 const reasonSchema = z.object({ reason: z.string().max(500).optional() });
 
-/** Stop a game in progress. No rating change, because none was applied yet. */
+/** Stop a game in progress, or withdraw a challenge. No rating change: none was applied. */
 adminGamesRouter.post(
   '/games/:id/abort',
   asyncHandler(async (req, res) => {
     const id = objectId.parse(req.params.id);
     const { reason } = parseBody(reasonSchema, req);
 
-    const aborted = await Game.findOneAndUpdate(
-      { _id: id, status: { $in: ['open', 'active'] } },
-      {
-        $set: {
-          status: 'aborted',
-          endedAt: new Date(),
-          termination: 'abandoned',
-          // Aborting is recorded on its own fields. The Flask version wrote
-          // the abort into voided_by_admin_id, conflating two different acts.
-          voidReason: trimToNull(reason, 500),
-        },
-        $inc: { version: 1 },
-      },
-      { returnDocument: 'after' },
-    );
+    // Aborting is recorded on its own fields. The Flask version wrote the
+    // abort into voided_by_admin_id, conflating two different acts.
+    const aborted = await abortGame(id, 'aborted', { reason: trimToNull(reason, 500) });
     if (!aborted) throw HttpError.badRequest('That game is already finished');
 
-    const game = await Game.findById(id)
-      .populate('whiteUserId', PLAYER_FIELDS)
-      .populate('blackUserId', PLAYER_FIELDS);
-    if (game) publishGame(game);
-
-    res.json(serializeGame(aborted));
+    const game = await announce(id, { lobby: true });
+    notifyChallengeClosed(game);
+    res.json(serializeGame(game));
   }),
 );
 
@@ -219,7 +221,7 @@ adminGamesRouter.post(
       );
     }
 
-    res.json(serializeGame(voided));
+    res.json(serializeGame(await announce(id)));
   }),
 );
 
@@ -231,14 +233,16 @@ adminGamesRouter.post(
     const game = await Game.findById(id);
     if (!game) throw HttpError.notFound('Game not found');
 
-    const updated = await Game.findByIdAndUpdate(
-      id,
+    // Guarded on the value just read, so two admins toggling at once cannot
+    // cancel each other out without noticing.
+    const updated = await Game.findOneAndUpdate(
+      { _id: id, chatDisabled: game.chatDisabled },
       { $set: { chatDisabled: !game.chatDisabled }, $inc: { version: 1 } },
       { returnDocument: 'after' },
     );
-    if (updated) publishGame(updated);
+    if (!updated) throw HttpError.conflict('Chat was just changed by someone else; refresh');
 
-    res.json(serializeGame(updated!));
+    res.json(serializeGame(await announce(id)));
   }),
 );
 

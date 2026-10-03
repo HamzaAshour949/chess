@@ -13,9 +13,11 @@ import {
   type Lang,
 } from '../lib/serializers.js';
 import { escapeRegex, trimToNull } from '../lib/sanitize.js';
+import { linkReviewedEmail, sendEmail, type EmailLang } from '../lib/email.js';
 import { currentAdmin, currentUser, requireAdmin, requireUser } from '../middleware/auth.js';
 import { linkRequestLimiter } from '../middleware/rate-limit.js';
-import { notifyUser } from '../realtime/publish.js';
+import { disconnectUser, notifyUser } from '../realtime/publish.js';
+import { withdrawFromPlay } from '../services/account-service.js';
 
 export const linksRouter: Router = Router();
 
@@ -49,6 +51,42 @@ function serializeLinkRequest(
     reviewed_at: request.reviewedAt ? new Date(request.reviewedAt).toISOString() : null,
     created_at: request.createdAt ? new Date(request.createdAt).toISOString() : null,
   };
+}
+
+/**
+ * Tell the player how their request went: live on their socket, and by email
+ * if they have not turned email notifications off.
+ */
+function announceReview(request: {
+  userId: unknown;
+  playerId: unknown;
+  status: string;
+  adminNote?: string | null;
+}) {
+  const user = request.userId as {
+    _id: unknown;
+    email?: string;
+    username?: string;
+    displayName?: string | null;
+    notifEmail?: boolean;
+    lang?: string;
+  };
+  const player = request.playerId as { nameEn?: string; nameAr?: string } | null;
+  const approved = request.status === 'approved';
+
+  notifyUser(String(user._id), 'link:reviewed', { status: request.status });
+
+  if (user.email && user.notifEmail !== false && user.username) {
+    const lang: EmailLang = user.lang === 'ar' ? 'ar' : 'en';
+    const playerName = (lang === 'ar' ? player?.nameAr : player?.nameEn) ?? player?.nameEn ?? '';
+    const name = user.displayName || user.username;
+    // Not awaited: the admin's click should not wait on the mail provider.
+    void sendEmail({
+      to: user.email,
+      toName: name,
+      ...linkReviewedEmail(name, playerName, approved, request.adminNote ?? null, lang),
+    });
+  }
 }
 
 // -------------------------------------------------------------------- user
@@ -168,10 +206,28 @@ linksRouter.post(
     request.reviewedAt = new Date();
     await request.save();
 
+    // Nobody else can be linked to this profile now, so any other pending
+    // request for it is settled here rather than left for a doomed approval.
+    const competing = await LinkRequest.find({
+      _id: { $ne: request._id },
+      playerId: request.playerId,
+      status: 'pending',
+    })
+      .populate('userId')
+      .populate('playerId');
+    for (const other of competing) {
+      other.status = 'rejected';
+      other.adminNote = 'This profile has been linked to another account.';
+      other.reviewedByAdminId = admin._id;
+      other.reviewedAt = new Date();
+      await other.save();
+      announceReview(other);
+    }
+
     await request.populate('userId');
     await request.populate('playerId');
 
-    notifyUser(String(request.userId), 'link:reviewed', { status: 'approved' });
+    announceReview(request);
     res.json(serializeLinkRequest(request, normalizeLang(req.query.lang)));
   }),
 );
@@ -196,7 +252,7 @@ linksRouter.post(
     await request.populate('userId');
     await request.populate('playerId');
 
-    notifyUser(String(request.userId), 'link:reviewed', { status: 'rejected' });
+    announceReview(request);
     res.json(serializeLinkRequest(request, normalizeLang(req.query.lang)));
   }),
 );
@@ -263,7 +319,12 @@ linksRouter.post(
       $set: { isBanned: true, bannedAt: new Date(), banReason: trimToNull(reason, 1000) },
     });
 
+    // Opponents are not left facing a board nobody will move on, and the
+    // lobby stops offering games against someone who can no longer play.
+    await withdrawFromPlay(user._id);
+
     notifyUser(id, 'account:banned', { reason: user.banReason });
+    disconnectUser(id);
     res.json(serializeUserPrivate(user));
   }),
 );

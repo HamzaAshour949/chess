@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { Types } from 'mongoose';
+import type { Types } from 'mongoose';
 import { z } from 'zod';
 import { BlockedUser, DirectMessage, User, conversationKey } from '../models/index.js';
 import { asyncHandler } from '../lib/async-handler.js';
@@ -8,22 +8,13 @@ import { objectId, parseBody, parseQuery } from '../lib/validate.js';
 import { serializeDirectMessage, serializeUser } from '../lib/serializers.js';
 import { sanitizeChat } from '../lib/sanitize.js';
 import { currentUser, requireUser } from '../middleware/auth.js';
-import { dmLimiter } from '../middleware/rate-limit.js';
-import { publishDirectMessage } from '../realtime/publish.js';
+import { dmLimiter, writeLimiter } from '../middleware/rate-limit.js';
+import { isOnline, publishDirectMessage } from '../realtime/publish.js';
+import { blockedBetween, hasBlocked } from '../services/blocks.js';
 
 export const messagesRouter: Router = Router();
 
 const DM_MAX = 2000;
-
-/** Is either side blocking the other? */
-async function blockedBetween(a: Types.ObjectId | string, b: Types.ObjectId | string) {
-  return BlockedUser.exists({
-    $or: [
-      { blockerId: a, blockedId: b },
-      { blockerId: b, blockedId: a },
-    ],
-  });
-}
 
 // ------------------------------------------------------------------ threads
 
@@ -72,30 +63,37 @@ messagesRouter.get(
       { $limit: 100 },
     ]);
 
-    const otherIds = rows.map((row) =>
-      String(row.lastMessage.senderId) === String(me)
-        ? row.lastMessage.recipientId
-        : row.lastMessage.senderId,
+    const otherIds = rows.map(
+      (row) =>
+        (String(row.lastMessage.senderId) === String(me)
+          ? row.lastMessage.recipientId
+          : row.lastMessage.senderId) as Types.ObjectId,
     );
 
     // One extra query for every participant, rather than one per thread.
-    const others = await User.find({ _id: { $in: otherIds } }).populate(
-      'linkedPlayerId',
-      'nameEn title',
-    );
+    const [others, blocks] = await Promise.all([
+      User.find({ _id: { $in: otherIds } }).populate('linkedPlayerId', 'nameEn title'),
+      BlockedUser.find({ blockerId: me, blockedId: { $in: otherIds } }).select('blockedId'),
+    ]);
     const byId = new Map(others.map((user) => [String(user._id), user]));
+    const blocked = new Set(blocks.map((block) => String(block.blockedId)));
 
     res.json(
-      rows.map((row, index) => {
+      rows.flatMap((row, index) => {
         const other = byId.get(String(otherIds[index]));
-        return {
-          other_user: other ? serializeUser(other) : null,
-          last_message: serializeDirectMessage(
-            row.lastMessage as Parameters<typeof serializeDirectMessage>[0],
-            String(me),
-          ),
-          unread: row.unread,
-        };
+        if (!other) return [];
+        return [
+          {
+            other_user: serializeUser(other),
+            online: isOnline(String(other._id)),
+            blocked_by_me: blocked.has(String(other._id)),
+            last_message: serializeDirectMessage(
+              row.lastMessage as Parameters<typeof serializeDirectMessage>[0],
+              String(me),
+            ),
+            unread: row.unread,
+          },
+        ];
       }),
     );
   }),
@@ -126,11 +124,23 @@ messagesRouter.get(
     if (otherId === String(me._id)) throw HttpError.badRequest('You cannot message yourself');
 
     const other = await User.findById(otherId).populate('linkedPlayerId', 'nameEn title');
-    if (!other) throw HttpError.notFound('Player not found');
+    if (!other || other.deletedAt) throw HttpError.notFound('Player not found');
 
     // A block hides the conversation in both directions, rather than only
-    // stopping new messages while the history stayed readable.
-    if (await blockedBetween(me._id, other._id)) {
+    // stopping new messages while the history stayed readable. The blocker
+    // still gets the header back, so they can see whom they blocked and undo
+    // it; the blocked side just finds the conversation unavailable.
+    if (await hasBlocked(me._id, other._id)) {
+      res.json({
+        other_user: serializeUser(other),
+        online: false,
+        blocked_by_me: true,
+        can_message: false,
+        messages: [],
+      });
+      return;
+    }
+    if (await hasBlocked(other._id, me._id)) {
       throw HttpError.forbidden('This conversation is unavailable');
     }
 
@@ -156,8 +166,27 @@ messagesRouter.get(
 
     res.json({
       other_user: serializeUser(other),
+      online: isOnline(String(other._id)),
+      blocked_by_me: false,
+      can_message: other.notifDm && !other.isBanned,
       messages: messages.map((message) => serializeDirectMessage(message, String(me._id))),
     });
+  }),
+);
+
+/** Mark a conversation read, e.g. when a message arrives while it is open. */
+messagesRouter.post(
+  '/with/:userId/read',
+  requireUser,
+  asyncHandler(async (req, res) => {
+    const otherId = objectId.parse(req.params.userId);
+    const me = currentUser(req);
+
+    const result = await DirectMessage.updateMany(
+      { pairKey: conversationKey(String(me._id), otherId), recipientId: me._id, readAt: null },
+      { $set: { readAt: new Date() } },
+    );
+    res.json({ marked: result.modifiedCount });
   }),
 );
 
@@ -177,7 +206,7 @@ messagesRouter.post(
     if (otherId === String(me._id)) throw HttpError.badRequest('You cannot message yourself');
 
     const other = await User.findById(otherId);
-    if (!other) throw HttpError.notFound('Player not found');
+    if (!other || other.deletedAt) throw HttpError.notFound('Player not found');
     if (other.isBanned) throw HttpError.forbidden('This player is unavailable');
     if (me.chatMuted) throw HttpError.forbidden('You are muted');
     if (!other.notifDm) throw HttpError.forbidden('This player has direct messages turned off');
@@ -222,6 +251,7 @@ messagesRouter.get(
 messagesRouter.post(
   '/blocks/:userId',
   requireUser,
+  writeLimiter,
   asyncHandler(async (req, res) => {
     const otherId = objectId.parse(req.params.userId);
     const me = currentUser(req);

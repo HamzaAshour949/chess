@@ -1,133 +1,142 @@
-import { useEffect, useState, useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import api from "../../api";
+import api, { apiError } from "../../api";
+import { useConfirm } from "../../components/ui/Dialog";
+import { useToast } from "../../components/ui/Toaster";
+import { formatDateTime } from "../../lib/format";
+import { Button, PageHeader, Pager, Pill, Table, inputCls } from "./ui";
+
+function who(person) {
+  return person?.display_name || person?.username || "—";
+}
 
 export default function AdminMessagesPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const confirm = useConfirm();
+  const { toast } = useToast();
   const [tab, setTab] = useState("game");
-  const [data, setData] = useState({ messages: [], total: 0, page: 1, per_page: 30 });
-  const [filters, setFilters] = useState({ search: "", show_deleted: false, page: 1 });
-  const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
+  const [showDeleted, setShowDeleted] = useState(false);
+  const [page, setPage] = useState(1);
+  const [data, setData] = useState({ messages: [], total: 0, pages: 1 });
+  const [loading, setLoading] = useState(true);
 
   const load = useCallback(() => {
-    const p = new URLSearchParams();
-    if (filters.search) p.set("search", filters.search);
-    p.set("only", filters.show_deleted ? "all" : "active");
-    p.set("page", filters.page);
-    p.set("per_page", "30");
-    const url = tab === "game"
-      ? `/games/admin/messages?${p.toString()}`
-      : `/messages/admin/dms?${p.toString()}`;
+    const p = new URLSearchParams({ page: String(page), per_page: "30", only: showDeleted ? "all" : "active" });
+    if (search.trim()) p.set("search", search.trim());
+    const url = tab === "game" ? `/games/admin/messages?${p}` : `/messages/admin/dms?${p}`;
+    setLoading(true);
     api
       .get(url)
-      .then((r) => setData(r.data || { messages: [] }))
-      .catch(() => setData({ messages: [], total: 0 }));
-  }, [tab, filters]);
+      .then((r) => setData(r.data))
+      .catch((e) => toast({ tone: "error", title: apiError(e, t("load_failed")) }))
+      .finally(() => setLoading(false));
+  }, [tab, search, showDeleted, page, toast, t]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    const id = setTimeout(load, search ? 250 : 0);
+    return () => clearTimeout(id);
+  }, [load, search]);
 
-  const del = async (id) => {
-    if (!confirm(t("confirm_delete_message"))) return;
+  const remove = async (message) => {
+    const ok = await confirm({ title: t("confirm_delete_message"), body: message.content, confirmLabel: t("delete"), tone: "danger" });
+    if (!ok) return;
     try {
-      const url = tab === "game"
-        ? `/games/admin/messages/${id}`
-        : `/messages/admin/dms/${id}`;
-      await api.delete(url);
+      await api.delete(tab === "game" ? `/games/admin/messages/${message.id}` : `/messages/admin/dms/${message.id}`);
       load();
     } catch (err) {
-      setError(err.response?.data?.error || "Failed");
-      setTimeout(() => setError(""), 3000);
+      toast({ tone: "error", title: apiError(err, t("action_failed")) });
     }
   };
 
+  const switchTab = (next) => {
+    setTab(next);
+    setPage(1);
+  };
+
+  const tabCls = (active) =>
+    `px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${active ? "bg-gray-900 text-white" : "text-gray-600 hover:bg-gray-200"}`;
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">{t("admin_chat_moderation")}</h1>
-        <p className="text-gray-500 text-sm mt-1">{t("admin_chat_intro")}</p>
-      </div>
+    <div>
+      <PageHeader title={t("admin_chat_moderation")} subtitle={t("admin_chat_intro")} />
 
-      <div className="flex gap-2 border-b border-gray-200">
-        <button onClick={() => { setTab("game"); setFilters({ ...filters, page: 1 }); }}
-          className={`px-4 py-2 text-sm font-semibold ${tab === "game" ? "text-amber-600 border-b-2 border-amber-600" : "text-gray-500 hover:text-gray-700"}`}>
-          {t("game_chat")}
-        </button>
-        <button onClick={() => { setTab("dm"); setFilters({ ...filters, page: 1 }); }}
-          className={`px-4 py-2 text-sm font-semibold ${tab === "dm" ? "text-amber-600 border-b-2 border-amber-600" : "text-gray-500 hover:text-gray-700"}`}>
-          {t("direct_messages")}
-        </button>
-      </div>
-
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-3 flex flex-wrap gap-2 items-center text-sm">
-        <input placeholder={t("search")} value={filters.search}
-          onChange={(e) => setFilters({ ...filters, search: e.target.value, page: 1 })}
-          className="border border-gray-300 rounded-lg px-3 py-2 text-sm flex-1 min-w-[200px]" />
-        <label className="flex items-center gap-1.5 text-gray-600 text-xs">
-          <input type="checkbox" checked={filters.show_deleted}
-            onChange={(e) => setFilters({ ...filters, show_deleted: e.target.checked, page: 1 })}
-            className="accent-amber-500" />
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        <div className="flex gap-1 bg-gray-100 p-1 rounded-xl" role="tablist">
+          <button type="button" role="tab" aria-selected={tab === "game"} className={tabCls(tab === "game")} onClick={() => switchTab("game")}>
+            {t("game_chat")}
+          </button>
+          <button type="button" role="tab" aria-selected={tab === "dm"} className={tabCls(tab === "dm")} onClick={() => switchTab("dm")}>
+            {t("direct_messages")}
+          </button>
+        </div>
+        <input
+          type="search"
+          placeholder={t("search_messages_placeholder")}
+          aria-label={t("search")}
+          value={search}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setPage(1);
+          }}
+          className={`${inputCls} flex-1 min-w-[200px] max-w-sm`}
+        />
+        <label className="flex items-center gap-2 text-sm text-gray-700">
+          <input
+            type="checkbox"
+            checked={showDeleted}
+            onChange={(e) => {
+              setShowDeleted(e.target.checked);
+              setPage(1);
+            }}
+            className="w-4 h-4 accent-amber-600"
+          />
           {t("show_deleted")}
         </label>
-        <span className="text-xs text-gray-500">{data.total} total</span>
       </div>
 
-      {error && <div className="bg-red-100 text-red-700 rounded-lg px-4 py-2 text-sm">{error}</div>}
-
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b border-gray-100">
-            <tr>
-              <th className="px-3 py-2 text-start text-xs font-medium uppercase text-gray-500">{t("when")}</th>
-              <th className="px-3 py-2 text-start text-xs font-medium uppercase text-gray-500">{t("from")}</th>
+      <Table
+        columns={[
+          { label: t("when") },
+          { label: t("from") },
+          { label: tab === "game" ? t("game") : t("to") },
+          { label: t("content") },
+          { label: t("actions"), end: true },
+        ]}
+        loading={loading && data.messages.length === 0}
+        empty={!loading && data.messages.length === 0 ? t("no_results") : null}
+      >
+        {data.messages.map((m) => (
+          <tr key={m.id} className="align-top hover:bg-gray-50">
+            <td className="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">{formatDateTime(m.created_at, i18n.language)}</td>
+            <td className="px-4 py-3 text-gray-900 text-sm whitespace-nowrap">
+              {tab === "game" ? (m.username ? <Link to={`/u/${m.username}`} className="hover:text-amber-700">{m.display_name || m.username}</Link> : "—") : who(m.sender)}
+            </td>
+            <td className="px-4 py-3 text-sm whitespace-nowrap">
               {tab === "game" ? (
-                <th className="px-3 py-2 text-start text-xs font-medium uppercase text-gray-500">{t("game")}</th>
+                <Link to={`/play/${m.game_id}`} target="_blank" rel="noreferrer" className="text-amber-700 hover:underline font-mono text-xs">
+                  {m.game_id?.slice(-8)} ↗
+                </Link>
               ) : (
-                <th className="px-3 py-2 text-start text-xs font-medium uppercase text-gray-500">{t("to")}</th>
+                <span className="text-gray-900">{who(m.recipient)}</span>
               )}
-              <th className="px-3 py-2 text-start text-xs font-medium uppercase text-gray-500">{t("content")}</th>
-              <th className="px-3 py-2 text-end text-xs font-medium uppercase text-gray-500">{t("actions")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(data.messages || []).map((m) => (
-              <tr key={m.id} className="border-t border-gray-100 hover:bg-gray-50">
-                <td className="px-3 py-2 text-gray-500 font-mono text-xs whitespace-nowrap">
-                  {m.created_at ? new Date(m.created_at).toLocaleString() : "—"}
-                </td>
-                <td className="px-3 py-2 text-gray-900 text-xs">
-                  {m.sender?.display_name || m.sender?.username || m.display_name || m.username || "—"}
-                </td>
-                {tab === "game" ? (
-                  <td className="px-3 py-2">
-                    <Link to={`/play/${m.game_id}`} className="text-amber-600 hover:underline text-xs">#{m.game_id}</Link>
-                  </td>
-                ) : (
-                  <td className="px-3 py-2 text-gray-900 text-xs">{m.recipient?.display_name || m.recipient?.username || "—"}</td>
-                )}
-                <td className="px-3 py-2 text-gray-700 max-w-md truncate">
-                  {m.is_deleted ? <i className="text-gray-400">[{t("deleted")}]</i> : m.content}
-                </td>
-                <td className="px-3 py-2 text-end">
-                  {!m.is_deleted && (
-                    <button onClick={() => del(m.id)} className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold rounded">{t("delete")}</button>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </td>
+            <td className="px-4 py-3 text-gray-800 max-w-md">
+              {m.is_deleted ? <Pill tone="gray">{t("message_removed")}</Pill> : <span className="break-words whitespace-pre-wrap">{m.content}</span>}
+            </td>
+            <td className="px-4 py-3 text-end">
+              {!m.is_deleted && (
+                <Button size="sm" variant="danger" onClick={() => remove(m)}>
+                  {t("delete")}
+                </Button>
+              )}
+            </td>
+          </tr>
+        ))}
+      </Table>
 
-      <div className="flex items-center justify-between">
-        <button disabled={data.page <= 1}
-          onClick={() => setFilters({ ...filters, page: data.page - 1 })}
-          className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm disabled:opacity-40">←</button>
-        <span className="text-sm text-gray-500">page {data.page} / {Math.max(1, Math.ceil(data.total / data.per_page))}</span>
-        <button disabled={data.page * data.per_page >= data.total}
-          onClick={() => setFilters({ ...filters, page: data.page + 1 })}
-          className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm disabled:opacity-40">→</button>
-      </div>
+      <Pager page={data.page ?? page} pages={data.pages} total={data.total} onChange={setPage} />
     </div>
   );
 }

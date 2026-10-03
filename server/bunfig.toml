@@ -1,0 +1,3 @@
+[test]
+# Forces the test environment before any module reads it. See tests/setup.ts.
+preload = ["./tests/setup.ts"]

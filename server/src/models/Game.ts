@@ -35,10 +35,20 @@ const gameSchema = new Schema(
     creatorUserId: { type: Types.ObjectId, ref: 'User', required: true },
     creatorColor: { type: String, enum: GAME_COLORS, default: 'random' },
 
+    /**
+     * A direct challenge (or rematch offer) is addressed to one player: only
+     * they may accept it, and it never appears in the public lobby.
+     */
+    invitedUserId: { type: Types.ObjectId, ref: 'User', default: null },
+    /** Mirrors `invitedUserId != null`; partial indexes need a plain equality. */
+    direct: { type: Boolean, default: false },
+    /** The finished game this one is a rematch of. */
+    rematchOfGameId: { type: Types.ObjectId, ref: 'Game', default: null },
+
     status: { type: String, enum: GAME_STATUSES, default: 'open' },
     /** "1-0" | "0-1" | "1/2-1/2" */
     result: { type: String, default: null },
-    /** checkmate | stalemate | resignation | timeout | agreement | ... */
+    /** checkmate | stalemate | resignation | timeout | agreement | abandoned | ... */
     termination: { type: String, default: null },
 
     moves: { type: String, default: '' },
@@ -53,6 +63,12 @@ const gameSchema = new Schema(
     incrementSeconds: { type: Number, default: 0, min: 0 },
     whiteTimeMs: { type: Number, default: null },
     blackTimeMs: { type: Number, default: null },
+    /**
+     * When the side to move runs out: its flag, or the first-move deadline.
+     * Kept on the document so the sweeper can find expired games with one
+     * indexed query instead of replaying every live clock.
+     */
+    deadlineAt: { type: Date, default: null },
 
     rated: { type: Boolean, default: true },
     minOppRating: { type: Number, default: null },
@@ -86,12 +102,28 @@ gameSchema.index({ status: 1, lastMoveAt: -1 });
 gameSchema.index({ whiteUserId: 1, createdAt: -1 });
 gameSchema.index({ blackUserId: 1, createdAt: -1 });
 gameSchema.index({ creatorUserId: 1, status: 1 });
+gameSchema.index({ invitedUserId: 1, status: 1 });
 // Recently finished games on the homepage.
 gameSchema.index({ status: 1, endedAt: -1 });
-// One open challenge per creator, enforced by the database.
+// The clock sweeper: live games whose deadline has passed.
+gameSchema.index({ status: 1, deadlineAt: 1 });
+// One open lobby challenge per creator, enforced by the database.
 gameSchema.index(
   { creatorUserId: 1 },
-  { unique: true, partialFilterExpression: { status: 'open' } },
+  {
+    unique: true,
+    name: 'one_open_seek_per_creator',
+    partialFilterExpression: { status: 'open', direct: false },
+  },
+);
+// And one pending direct challenge per pair of players.
+gameSchema.index(
+  { creatorUserId: 1, invitedUserId: 1 },
+  {
+    unique: true,
+    name: 'one_open_invite_per_pair',
+    partialFilterExpression: { status: 'open', direct: true },
+  },
 );
 
 export type GameAttrs = InferSchemaType<typeof gameSchema>;

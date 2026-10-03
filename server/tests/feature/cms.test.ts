@@ -1,4 +1,4 @@
-import { afterAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeEach, describe, expect, it } from 'bun:test';
 import sharp from 'sharp';
 import { auth, closeDatabase, makeAdmin, makeUser, request, resetDatabase } from '../helpers/app.js';
 import { News, Player, SiteString } from '../../src/models/index.js';

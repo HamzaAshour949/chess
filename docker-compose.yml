@@ -1,0 +1,61 @@
+# Chess Hub with MongoDB, for a single host.
+#
+#   cp .env.example .env     # set JWT_SECRET, PRODUCTION_APP_URL, BREVO_API_KEY
+#   docker compose up -d --build
+#   docker compose exec app bun server/src/db/seed.ts     # optional demo data
+#
+# MongoDB runs as a one-node replica set: the game-finish path uses
+# multi-document transactions, which MongoDB only offers on a replica set.
+
+services:
+  mongo:
+    image: mongo:8
+    command: ["--replSet", "rs0", "--bind_ip_all"]
+    restart: unless-stopped
+    volumes:
+      - mongo-data:/data/db
+    # Initiates the replica set on first start, then reports its health.
+    healthcheck:
+      test:
+        - CMD
+        - mongosh
+        - --quiet
+        - --eval
+        - "try { rs.status().ok } catch (e) { rs.initiate({ _id: 'rs0', members: [{ _id: 0, host: 'mongo:27017' }] }).ok }"
+      interval: 5s
+      timeout: 10s
+      retries: 30
+      start_period: 10s
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+    ports:
+      - "${PORT:-8080}:8080"
+    environment:
+      NODE_ENV: production
+      PORT: 8080
+      MONGODB_URI: mongodb://mongo:27017/chess_hub?replicaSet=rs0
+      APP_URL: ${PRODUCTION_APP_URL:-http://localhost:8080}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      BCRYPT_ROUNDS: ${BCRYPT_ROUNDS:-12}
+      CORS_ORIGINS: ${PRODUCTION_CORS_ORIGINS:-}
+      TRUST_PROXY: ${TRUST_PROXY:-0}
+      RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-60000}
+      RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-300}
+      UPLOAD_MAX_BYTES: ${UPLOAD_MAX_BYTES:-5242880}
+      BREVO_API_KEY: ${BREVO_API_KEY:-}
+      BREVO_FROM_EMAIL: ${BREVO_FROM_EMAIL:-no-reply@chesshub.local}
+      BREVO_FROM_NAME: ${BREVO_FROM_NAME:-Chess Hub}
+      EMAIL_CONSOLE: ${EMAIL_CONSOLE:-0}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    volumes:
+      - uploads:/app/uploads
+
+volumes:
+  mongo-data:
+  uploads:

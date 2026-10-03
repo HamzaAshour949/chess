@@ -1,79 +1,83 @@
-import { useState, useRef, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useLanguage } from "../context/LanguageContext";
 
-const languages = [
-  { code: "en", label: "English", flag: "🇬🇧" },
-  { code: "ar", label: "العربية", flag: "🇸🇦" },
+const LANGUAGES = [
+  { code: "en", label: "English", short: "EN" },
+  { code: "ar", label: "العربية", short: "ع" },
 ];
 
-export default function LanguageDropdown({ variant = "light" }) {
+/**
+ * Interface language picker. `tone="light"` for the light admin sidebar
+ * footer, the default for the dark public header.
+ */
+export default function LanguageDropdown({ tone = "dark" }) {
+  const { t } = useTranslation();
   const { lang, setLanguage } = useLanguage();
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
-
-  const current = languages.find((l) => l.code === lang) || languages[0];
+  const current = LANGUAGES.find((l) => l.code === lang) ?? LANGUAGES[0];
 
   useEffect(() => {
-    const handleClick = (e) => {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    if (!open) return undefined;
+    const onPointer = (event) => {
+      if (ref.current && !ref.current.contains(event.target)) setOpen(false);
     };
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, []);
+    const onKey = (event) => event.key === "Escape" && setOpen(false);
+    document.addEventListener("mousedown", onPointer);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onPointer);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
 
-  const isDark = variant !== "light"; // default = dark on public pages
+  const button =
+    tone === "light"
+      ? "bg-white/10 hover:bg-white/15 text-white border border-white/10"
+      : "bg-white/5 hover:bg-white/10 text-white border border-white/10";
 
   return (
     <div ref={ref} className="relative">
       <button
-        onClick={() => setOpen(!open)}
-        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-          isDark
-            ? "bg-white/5 hover:bg-white/10 text-white border border-white/10"
-            : "bg-amber-600 hover:bg-amber-700 text-white"
-        }`}
+        type="button"
+        onClick={() => setOpen((shown) => !shown)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={t("language")}
+        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm font-medium transition-colors ${button}`}
       >
-        <span>{current.flag}</span>
-        <span>{current.label}</span>
-        <svg
-          className={`w-3.5 h-3.5 transition-transform ${open ? "rotate-180" : ""}`}
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        </svg>
+        <span aria-hidden="true">🌐</span>
+        <span className="hidden sm:inline">{current.label}</span>
+        <span className="sm:hidden">{current.short}</span>
       </button>
 
       {open && (
-        <div className={`absolute top-full mt-2 rounded-xl overflow-hidden z-50 ${
-          isDark ? "surface-elev" : "bg-white border border-gray-200 shadow-lg"
-        }`}
-          style={{ minWidth: "160px", insetInlineEnd: 0 }}
+        <ul
+          role="listbox"
+          aria-label={t("language")}
+          className="absolute top-full mt-2 end-0 min-w-[10rem] rounded-xl overflow-hidden z-50 border border-white/10 shadow-2xl p-1"
+          style={{ background: "#111827" }}
         >
-          {languages.map((l) => (
-            <button
-              key={l.code}
-              onClick={() => {
-                setLanguage(l.code);
-                setOpen(false);
-              }}
-              className={`w-full flex items-center gap-2 px-4 py-2.5 text-sm transition-colors ${
-                l.code === lang
-                  ? isDark
-                    ? "bg-amber-500/15 text-amber-300"
-                    : "bg-amber-50 text-amber-700"
-                  : isDark
-                  ? "text-slate-300 hover:bg-white/5 hover:text-white"
-                  : "text-gray-700 hover:bg-gray-50"
-              }`}
-            >
-              <span>{l.flag}</span>
-              <span>{l.label}</span>
-              {l.code === lang && <span className="ms-auto">✓</span>}
-            </button>
+          {LANGUAGES.map((l) => (
+            <li key={l.code} role="option" aria-selected={l.code === lang}>
+              <button
+                type="button"
+                lang={l.code}
+                onClick={() => {
+                  setLanguage(l.code);
+                  setOpen(false);
+                }}
+                className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm ${
+                  l.code === lang ? "bg-amber-500/15 text-amber-300" : "text-slate-300 hover:bg-white/5 hover:text-white"
+                }`}
+              >
+                {l.label}
+                {l.code === lang && <span className="ms-auto">✓</span>}
+              </button>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
     </div>
   );

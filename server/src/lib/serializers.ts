@@ -2,6 +2,7 @@ import type { Types } from 'mongoose';
 import { env } from '../config/env.js';
 import { isProvisional, type GameDoc, type NewsDoc, type PlayerDoc, type UserDoc } from '../models/index.js';
 import { turnFromFen } from './chess.js';
+import { isClockRunning, remainingMs } from './clock.js';
 
 /**
  * API response shapes.
@@ -90,11 +91,13 @@ export function serializeNews(article: NewsDoc, lang: Lang = 'en') {
 /** Everything anyone may see about a player. Never includes an email. */
 export function serializeUser(user: UserDoc) {
   const linked = populated<PlayerDoc>(user.linkedPlayerId as Ref<PlayerDoc>);
+  const deleted = Boolean(user.deletedAt);
   return {
     id: String(user._id),
     username: user.username,
-    display_name: user.displayName || user.username,
-    avatar_url: user.avatarUrl,
+    // A deleted account keeps its games, but not its name.
+    display_name: deleted ? null : user.displayName || user.username,
+    avatar_url: deleted ? null : user.avatarUrl,
     country: user.country,
     online_rating: user.onlineRating,
     games_played: user.gamesPlayed,
@@ -106,6 +109,7 @@ export function serializeUser(user: UserDoc) {
     linked_player_name: linked?.nameEn ?? null,
     linked_player_title: linked?.title ?? null,
     is_banned: user.isBanned,
+    is_deleted: deleted,
     created_at: iso(user.createdAt),
   };
 }
@@ -115,6 +119,7 @@ export function serializeUserPrivate(user: UserDoc) {
   return {
     ...serializeUser(user),
     email: user.email,
+    lang: user.lang,
     is_verified: user.isVerified,
     banned_at: iso(user.bannedAt),
     ban_reason: user.banReason,
@@ -139,36 +144,23 @@ export function serializeAdmin(admin: { _id: unknown; username: string; email: s
 // -------------------------------------------------------------------- game
 
 /**
- * Remaining time for both sides, with the time already spent on the current
- * move subtracted.
+ * Remaining time for both sides in seconds, with the time already spent on
+ * the current move subtracted.
  *
  * The stored value is only updated when a move is played, so a client reading
  * it raw would show a frozen clock for the side to move.
  */
 export function liveClocks(game: GameDoc, now = Date.now()): { white: number | null; black: number | null } {
-  if (game.whiteTimeMs == null || game.blackTimeMs == null) {
-    return { white: null, black: null };
-  }
-
-  let white = game.whiteTimeMs;
-  let black = game.blackTimeMs;
-
-  if (game.status === 'active') {
-    const since = game.lastMoveAt ?? game.startedAt;
-    if (since) {
-      const elapsed = Math.max(0, now - new Date(since).getTime());
-      if (turnFromFen(game.fen) === 'white') white = Math.max(0, white - elapsed);
-      else black = Math.max(0, black - elapsed);
-    }
-  }
-
-  return { white: white / 1000, black: black / 1000 };
+  const remaining = remainingMs(game, now);
+  if (!remaining) return { white: null, black: null };
+  return { white: remaining.white / 1000, black: remaining.black / 1000 };
 }
 
 export function serializeGame(game: GameDoc) {
   const white = populated<UserDoc>(game.whiteUserId as Ref<UserDoc>);
   const black = populated<UserDoc>(game.blackUserId as Ref<UserDoc>);
   const creator = populated<UserDoc>(game.creatorUserId as Ref<UserDoc>);
+  const invited = populated<UserDoc>(game.invitedUserId as Ref<UserDoc>);
   const clocks = liveClocks(game);
 
   return {
@@ -188,6 +180,13 @@ export function serializeGame(game: GameDoc) {
     increment_seconds: game.incrementSeconds,
     white_time_remaining: clocks.white,
     black_time_remaining: clocks.black,
+    /** False during each side's free first move, and for untimed games. */
+    clock_running: isClockRunning(game),
+    /**
+     * When the side to move forfeits by doing nothing: the first-move
+     * deadline, or its flag. Clients count down to it; the server enforces it.
+     */
+    deadline_at: game.status === 'active' ? iso(game.deadlineAt) : null,
     /**
      * The server's clock at the moment of this response. Clients diff against
      * it to correct for their own clock skew instead of assuming the two
@@ -205,6 +204,10 @@ export function serializeGame(game: GameDoc) {
     creator_color: game.creatorColor,
     creator_user_id: id(game.creatorUserId),
     creator_user: creator ? serializeUser(creator) : null,
+    /** Set for a direct challenge or rematch offer: only this player may accept. */
+    invited_user_id: id(game.invitedUserId),
+    invited_user: invited ? serializeUser(invited) : null,
+    rematch_of_game_id: id(game.rematchOfGameId),
     white_user: white ? serializeUser(white) : null,
     black_user: black ? serializeUser(black) : null,
 

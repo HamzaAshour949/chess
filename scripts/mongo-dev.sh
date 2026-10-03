@@ -16,11 +16,14 @@ PORT="${MONGO_PORT:-27017}"
 REPL_SET="rs0"
 
 require_mongod() {
-  if ! command -v mongod >/dev/null 2>&1; then
-    echo "mongod not found. Install it with:  brew tap mongodb/brew && brew install mongodb-community" >&2
-    echo "Or run MongoDB in Docker:  docker run -d --name chess-mongo -p 27017:27017 mongo:8 --replSet rs0" >&2
-    exit 1
-  fi
+  local tool
+  for tool in mongod mongosh; do
+    if ! command -v "$tool" >/dev/null 2>&1; then
+      echo "$tool not found. Install MongoDB with:  brew tap mongodb/brew && brew install mongodb-community" >&2
+      echo "Or run MongoDB in Docker:  docker run -d --name chess-mongo -p 27017:27017 mongo:8 --replSet rs0" >&2
+      exit 1
+    fi
+  done
 }
 
 is_up() { mongosh --quiet --port "$PORT" --eval 'db.runCommand({ping:1}).ok' >/dev/null 2>&1; }
